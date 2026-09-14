@@ -1,0 +1,10 @@
+services:
+  ros2:
+    build: .
+    container_name: david_docker
+    volumes:
+      - ..:/ros2_ws
+    network_mode: host
+    stdin_open: true
+    tty: true
+    command: bash
