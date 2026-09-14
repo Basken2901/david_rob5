@@ -1,0 +1,18 @@
+# Version control
+.git
+.gitignore
+
+# ROS2 build artifacts (regenerated inside container anyway)
+build/
+install/
+log/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Editor/OS cruft
+.vscode/
+.idea/
+*.swp
+.DS_Store
