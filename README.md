@@ -1,3 +1,7 @@
+# Virtual-to-Physical Teloperation of a Mobile Dual-Arm Robot
+![Platform](https://img.shields.io/badge/platform-Linux%20(Ubuntu%2024.04)-orange?logo=linux)
+![Status](https://img.shields.io/badge/status-active%20research-brightgreen)
+
 ### Enter Docker:
 1. Enter the docker folder:
 ```
