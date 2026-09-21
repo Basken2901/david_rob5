@@ -28,3 +28,10 @@ To exit a container
 ```
 exit
 ```
+
+
+ros2 launch ur_robot_driver ur_control.launch.py \
+  ur_type:=ur5 robot_ip:=yyy.yyy.yyy.yyy \
+  use_mock_hardware:=true launch_rviz:=true
+
+# VNC in browser: http://localhost:6080/vnc.html

@@ -1,10 +1,39 @@
 services:
+  ursim:
+    image: universalrobots/ursim_e-series
+    environment:
+      - ROBOT_MODEL=UR5
+    ports:
+      - "6080:6080"   
+    volumes:
+      - ./ursim/programs:/ursim/programs
+      - ./ursim/urcaps:/urcaps
+    networks:
+      urnet:
+        ipv4_address: 192.168.56.101
+    cap_add:
+      - NET_ADMIN
+
   ros2:
     build: .
+    depends_on:
+      - ursim
     container_name: david_docker
     volumes:
       - ..:/ros2_ws
-    network_mode: host
+      - /tmp/.X11-unix:/tmp/.X11-unix
+    environment:
+      - DISPLAY=${DISPLAY}
+      - QT_X11_NO_MITSHM=1
+    networks:
+      urnet:
+        ipv4_address: 192.168.56.2
     stdin_open: true
     tty: true
-    command: bash
+  
+networks:
+  urnet:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 192.168.56.0/24
