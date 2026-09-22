@@ -42,6 +42,6 @@ This starts the UR5 simulation in Rviz
 
 4. Second container
 ```
-ros2 launch ur_moveit_config ur_moveit.launch.py \ ur_type:=ur5 launch_rviz:=true use_sim_time:=false
+ros2 launch ur_moveit_config ur_moveit.launch.py   ur_type:=ur5 launch_rviz:=true use_sim_time:=false
 ```
 This launches the MoveIT planner in another Rviz window
