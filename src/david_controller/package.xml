@@ -7,12 +7,18 @@
   <maintainer email="mathiasaskhansen04@gmail.com">mathias</maintainer>
   <license>TODO: License declaration</license>
 
-  <test_depend>ament_copyright</test_depend>
-  <test_depend>ament_flake8</test_depend>
-  <test_depend>ament_pep257</test_depend>
-  <test_depend>python3-pytest</test_depend>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>rclcpp</depend>
+  <depend>rclcpp_action</depend>
+  <depend>ament_index_cpp</depend>
+  <depend>interfaces</depend>
+  <depend>libglfw3-dev</depend>
+  <depend>libgl1-mesa-dev</depend>
 
+  <exec_depend>libglfw3</exec_depend>
+  <exec_depend>libopengl0</exec_depend>
+  
   <export>
-    <build_type>ament_python</build_type>
+    <build_type>ament_cmake</build_type>
   </export>
 </package>
