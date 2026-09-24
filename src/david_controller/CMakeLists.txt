@@ -19,6 +19,8 @@ include_directories(include)
 add_executable(controller
     src/main.cpp
     src/path_planner.cpp
+    src/state_manager.cpp
+    src/transformations.cpp
 )
 
 target_include_directories(controller PUBLIC
