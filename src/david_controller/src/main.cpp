@@ -5,6 +5,11 @@
 #include <iostream>
 
 #include "rclcpp/rclcpp.hpp"  // all headers (those ending with .hpp) must be specififed in the package.xml file. 
+#include "geometry_msgs/msg/twist_stamped.hpp"
+
+#include "state_manager.h"
+#include "path_planner.h"
+#include "transformations.h"
 
 using namespace std::chrono_literals;
 
@@ -32,10 +37,11 @@ class control_node : public rclcpp::Node{ //our control_node is derived from the
         }
 
     private: // here goes callback functions and member variables (variables that should only belong to this class and not be accessed by other classes)
-        {
+        
         geometry_msgs::msg::TwistStamped msg; // creates twist stamped variable named msg:)
-        msg.header.stamp = this->get_clock()->now(); //msg message gets the current time from the ros2 clock and assigns it to the header.stamp variable
-        msg.header.frame_id = "base_link"; // assigns the frame_id which the velocity message regards to. 
+        //msg.header.stamp = this->get_clock()->now(); //msg message gets the current time from the ros2 clock and assigns it to the header.stamp variable
+        //msg.header.frame_id = "base_link"; // assigns the frame_id which the velocity message regards to. 
+        rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr cmd_vel_pub_;
 
         void activate_trajectory(float trajectory_duration){
             StateManager state_manager; //! Temp
@@ -56,12 +62,19 @@ class control_node : public rclcpp::Node{ //our control_node is derived from the
         }
 
 
-        }
-}
+        
+};
+
+//TrajectoryInitState init_state = {
+//        .position = {0.0, 0.0, 0.0},
+//        .position_target_prev = {0.0, 0.0, 0.0},
+//        .orientation = {1.0, 0.0, 0.0, 0.0},cd
+//        .velocity = {0.0, 0.0, 0.0},
+//        .acceleration = {0.0, 0.0, 0.0},
+//        .yaw = 0.0
+//    };
 
 
-
-//#include "path_planner.h"
 
 
 int main(int argc, char * argv[])  // main function: should contain as little code as possible, just to call the other functions
@@ -73,11 +86,12 @@ int main(int argc, char * argv[])  // main function: should contain as little co
     rclcpp::spin(std::make_shared<control_node>()); //keeps node active 
     rclcpp::shutdown(); //shuts down the node when the program is terminated
 
-    rclpp::Publisher<geometry_msgs::msg::TwistStamped> ::SharedPtr publisher_; 
+    rclcpp::Publisher<geometry_msgs::msg::TwistStamped> ::SharedPtr publisher_; 
+    
 
     
 
-
+    geometry_msgs::msg::TwistStamped msg; //Remember, msg have to exist in the different instances. This one is not the same you made inside the class
 
     publisher_->publish(msg);
 
