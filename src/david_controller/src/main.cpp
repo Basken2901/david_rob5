@@ -32,9 +32,9 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         "/servo_node/delta_twist_cmds", 10); //double check the topic name
 
         //Timer for publishing cmd_vel messages
-        timer_ = this->create_wall_timer(
-            std::chrono::milliseconds(50), // 20 Hz
-            std::bind(&ControlNode::vel_cmd_callback, this)); // 
+        //timer_ = this->create_wall_timer(
+        //    std::chrono::milliseconds(50), // 20 Hz
+        //    std::bind(&ControlNode::vel_cmd_callback, this)); // 
         }
 
         
@@ -42,8 +42,6 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
     private: // here goes callback functions and member variables (variables that should only belong to this class and not be accessed by other classes)
         
         StateManager state_manager;
-
-        geometry_msgs::msg::TwistStamped msg; // creates twist stamped variable named msg:)
         //msg.header.stamp = this->get_clock()->now(); //msg message gets the current time from the ros2 clock and assigns it to the header.stamp variable
         //msg.header.frame_id = "base_link"; // assigns the frame_id which the velocity message regards to. 
         rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr cmd_vel_pub_;
@@ -52,13 +50,10 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         rclcpp::TimerBase::SharedPtr control_timer;
         rclcpp::Time last_time;
 
-        void vel_cmd_callback() // as of now, this function creates twist.stamped messages containing a point in time, frame-id, and a linear velocity in the x direction. The message is then published to the topic "/servo_node/delta_twist_cmds"
-        {
-            geometry_msgs::msg::TwistStamped cmd_vel; // creates blank twist stamped variable named cmd_vel
+        void vel_cmd_callback(geometry_msgs::msg::TwistStamped cmd_vel) // as of now, this function creates twist.stamped messages containing a point in time, frame-id, and a linear velocity in the x direction. The message is then published to the topic "/servo_node/delta_twist_cmds"
+        {// creates blank twist stamped variable named cmd_vel
             cmd_vel.header.stamp = this->get_clock()->now(); //cmd_vel message gets the current time from this node's clock and assigns it to the header.stamp variable of the cmd_vel message. T.
-            cmd_vel.header.frame_id = "base_link"; // cmd_vel message gets the frame_id set to "base_link"
-            cmd_vel.twist.linear.x = 0.05; //example of an actual twist.stamped message. other variables stay a 0 unless other is specified. 
-            //publisher_->publish(cmd_vel); //publishes the message to the topic
+            cmd_vel.header.frame_id = "base_link"; // cmd_vel message gets the frame_id set to "base_link" 
             cmd_vel_pub_->publish(cmd_vel); //publishes the message to the topic
         }
 
@@ -102,6 +97,7 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
             //{
             //    last_time = now;
             //}
+            geometry_msgs::msg::TwistStamped msg;
 
             switch (state_manager.get_control_mode())
             {
@@ -112,7 +108,9 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
                     // ...
                     break;
                 case ControlMode::OPERATION:
-                    std::cout<<now.nanoseconds()<<std::endl;
+                    
+                    msg.twist.linear.x = 0.5;
+                    vel_cmd_callback(msg);
                     // ...
                     break;
                 case ControlMode::DEADMAN:
