@@ -48,3 +48,5 @@ install(DIRECTORY config/
 )
 
 ament_package()
+
+ament_target_dependencies(controller rclcpp geometry_msgs)

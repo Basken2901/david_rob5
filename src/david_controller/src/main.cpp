@@ -7,34 +7,33 @@
 #include "rclcpp/rclcpp.hpp"  // all headers (those ending with .hpp) must be specififed in the package.xml file. 
 #include "geometry_msgs/msg/twist_stamped.hpp"
 
-#include "state_manager.h"
-#include "path_planner.h"
-#include "transformations.h"
-
 using namespace std::chrono_literals;
 
+#include "path_planner.h"
+#include "state_manager.h"
 
 
 
-class control_node : public rclcpp::Node{ //our control_node is derived from the "rclcpp::Node" class that is the base class for all ROS2 nodes.
+class ControlNode : public rclcpp::Node{ //our control_node is derived from the "rclcpp::Node" class that is the base class for all ROS2 nodes.
 
 
 
     public:
-        control_node() : Node("control_node") //custructor of node object??
+        ControlNode() : Node("control_node") //custructor of node object??
         {
         std::cout << "control_node initialized" << std::endl; //! For testing the control loop
         state_manager.set_control_mode(ControlMode::OPERATION);
         start_control_loop();
         //StateManagers
 
-
-
         //Publishers
-        cmd_vel_pub_ = this->create_publisher<geometry_msgs::msg::TwistStamped>( //message name is msg (need to define in a msg folder?)
+        cmd_vel_pub_ = this->create_publisher<geometry_msgs::msg::TwistStamped>( 
         "/servo_node/delta_twist_cmds", 10); //double check the topic name
 
-
+        //Timer for publishing cmd_vel messages
+        timer_ = this->create_wall_timer(
+            std::chrono::milliseconds(50), // 20 Hz
+            std::bind(&ControlNode::vel_cmd_callback, this)); // 
         }
 
         
@@ -60,7 +59,7 @@ class control_node : public rclcpp::Node{ //our control_node is derived from the
             arm_state.trajectory_duration = rclcpp::Duration::from_seconds(trajectory_duration);
             state_manager.set_arm_state(arm_state);
         }
-        
+
         double evalPoly(const std::vector<double>& c, double t) { //! TEMP
             double result = 0.0;
             for (int k = static_cast<int>(c.size()) - 1; k >= 0; --k) {
@@ -131,7 +130,7 @@ int main(int argc, char * argv[])  // main function: should contain as little co
 {
 
     rclcpp::init(argc, argv); //initializing ros2 for the program
-    rclcpp::spin(std::make_shared<control_node>()); //keeps node active 
+    rclcpp::spin(std::make_shared<ControlNode>()); //keeps node active 
     rclcpp::shutdown(); //shuts down the node when the program is terminated
 
     return 0;
