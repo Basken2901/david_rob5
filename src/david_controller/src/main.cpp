@@ -78,11 +78,20 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
             return result;
         }
 
+
+        
 };
 
+//TrajectoryInitState init_state = {
+//        .position = {0.0, 0.0, 0.0},
+//        .position_target_prev = {0.0, 0.0, 0.0},
+//        .orientation = {1.0, 0.0, 0.0, 0.0},cd
+//        .velocity = {0.0, 0.0, 0.0},
+//        .acceleration = {0.0, 0.0, 0.0},
+//        .yaw = 0.0
+//    };
 
 
-//#include "path_planner.h"
 
 
 int main(int argc, char * argv[])  // main function: should contain as little code as possible, just to call the other functions

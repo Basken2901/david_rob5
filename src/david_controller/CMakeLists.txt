@@ -36,6 +36,7 @@ ament_target_dependencies(controller
   rclcpp
   rclcpp_action
   std_msgs
+  geometry_msgs 
 )
 
 install(TARGETS controller
