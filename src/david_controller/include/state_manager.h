@@ -15,6 +15,13 @@ enum class TrajectoryMode {
     COMPLETED = 2
 };
 
+enum class ControlMode {
+    SAFETY = 0,
+    STARTUP = 1,
+    OPERATION = 2,
+    DEADMAN = 3
+};
+
 struct ArmState {
     //! Create ros timestamp
     rclcpp::Time timestamp = rclcpp::Time(0, 0);
@@ -57,6 +64,8 @@ class StateManager {
     public:
         void set_arm_state(const ArmState& new_data);
         ArmState get_arm_state();
+        void set_control_mode(const ControlMode& mode);
+        ControlMode get_control_mode();
         void setLocalPosition(const Stamped3DVector& position);
         Stamped3DVector getLocalPosition();
         void setGlobalPosition(const Stamped3DVector& position);
@@ -72,6 +81,9 @@ class StateManager {
     private:
         ArmState arm_state_;
         std::mutex arm_state_mutex_;
+        ControlMode control_mode_;
+        std::mutex control_mode_mutex_;
+ 
         Stamped3DVector arm_position_;
         std::mutex arm_position_mutex_;
         Stamped3DVector arm_global_position_;
