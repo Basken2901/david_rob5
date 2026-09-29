@@ -14,6 +14,7 @@ using namespace std::chrono_literals;
 
 
 
+
 class ControlNode : public rclcpp::Node{ //our control_node is derived from the "rclcpp::Node" class that is the base class for all ROS2 nodes.
 
 
@@ -46,10 +47,20 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         //msg.header.stamp = this->get_clock()->now(); //msg message gets the current time from the ros2 clock and assigns it to the header.stamp variable
         //msg.header.frame_id = "base_link"; // assigns the frame_id which the velocity message regards to. 
         rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr cmd_vel_pub_;
-        
+        rclcpp::TimerBase::SharedPtr timer_;
         
         rclcpp::TimerBase::SharedPtr control_timer;
         rclcpp::Time last_time;
+
+        void vel_cmd_callback() // as of now, this function creates twist.stamped messages containing a point in time, frame-id, and a linear velocity in the x direction. The message is then published to the topic "/servo_node/delta_twist_cmds"
+        {
+            geometry_msgs::msg::TwistStamped cmd_vel; // creates blank twist stamped variable named cmd_vel
+            cmd_vel.header.stamp = this->get_clock()->now(); //cmd_vel message gets the current time from this node's clock and assigns it to the header.stamp variable of the cmd_vel message. T.
+            cmd_vel.header.frame_id = "base_link"; // cmd_vel message gets the frame_id set to "base_link"
+            cmd_vel.twist.linear.x = 0.05; //example of an actual twist.stamped message. other variables stay a 0 unless other is specified. 
+            //publisher_->publish(cmd_vel); //publishes the message to the topic
+            cmd_vel_pub_->publish(cmd_vel); //publishes the message to the topic
+        }
 
         void activate_trajectory(float trajectory_duration){
             ArmState arm_state = state_manager.get_arm_state();
