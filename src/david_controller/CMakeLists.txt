@@ -23,6 +23,7 @@ add_executable(controller
     src/path_planner.cpp
     src/state_manager.cpp
     src/transformations.cpp
+    src/kinematics.cpp
 )
 
 target_include_directories(controller PUBLIC

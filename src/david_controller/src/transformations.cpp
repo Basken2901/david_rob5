@@ -32,3 +32,16 @@ EulerAngles Transformations::quaternionToEuler(const Eigen::Quaterniond& q) cons
 
     return EulerAngles{roll, pitch, yaw};
 }
+
+
+Eigen::Matrix4d Transformations::link_transformation_matrix(double theta, double alpha, double a, double d)
+{
+    const double ct = std::cos(theta), st = std::sin(theta);
+    const double ca = std::cos(alpha), sa = std::sin(alpha);
+    Eigen::Matrix4d T;
+    T << ct, -st, 0, a,
+        st*ca, ct*ca, -sa, -sa*d,
+        st*sa, ct*sa, ca, ca*d,
+        0, 0, 0,1;
+    return T;
+}

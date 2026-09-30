@@ -5,6 +5,8 @@
 #include <eigen3/Eigen/Geometry>
 
 
+
+
 struct EulerAngles {
     double roll  = 0.0;
     double pitch = 0.0;
@@ -14,4 +16,5 @@ struct EulerAngles {
 struct Transformations{
     double unwrapAngle(double angle, double max, double min) const;
     EulerAngles quaternionToEuler(const Eigen::Quaterniond& q) const;
+    Eigen::Matrix4d link_transformation_matrix(double theta, double alpha, double a, double d);
 };

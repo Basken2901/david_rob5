@@ -12,6 +12,8 @@ using namespace std::chrono_literals;
 
 #include "path_planner.h"
 #include "state_manager.h"
+#include "kinematics.h"
+#include "transformations.h"
 
 
 
@@ -47,6 +49,8 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
     private: // here goes callback functions and member variables (variables that should only belong to this class and not be accessed by other classes)
         
         StateManager state_manager;
+        Transformations transformations;
+        ForwardKinematics forwardkinematics;
         //msg.header.stamp = this->get_clock()->now(); //msg message gets the current time from the ros2 clock and assigns it to the header.stamp variable
         //msg.header.frame_id = "base_link"; // assigns the frame_id which the velocity message regards to. 
         rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr cmd_vel_pub_;
@@ -105,7 +109,9 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
             //}
             const double t = (this->now() - start_time_).seconds();
             geometry_msgs::msg::TwistStamped msg;
-
+            ForwardMovements end_point;
+            DHParam dh;                     
+            TempJoint th;
             switch (state_manager.get_control_mode())
             {
                 case ControlMode::SAFETY:
@@ -119,9 +125,17 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
                 case ControlMode::OPERATION:
                     
                     {
-                        std_msgs::msg::Float64MultiArray cmd;
-                        cmd.data = {0.3 * std::sin(2.0 * M_PI * 0.25 * t), 0.0, 0.0, 0.0, 0.0, 0.0};  // elbow only
-                        vel_pub_->publish(cmd);
+                        //std_msgs::msg::Float64MultiArray cmd;
+                        //cmd.data = {0.3 * std::sin(2.0 * M_PI * 0.25 * t), 0.0, 0.0, 0.0, 0.0, 0.0};  // elbow only
+                        //vel_pub_->publish(cmd);
+                        th.theta[0] = 0.3;
+                        th.theta[1] = -1.2;
+                        th.theta[2] = 1.5;
+                        end_point = forwardkinematics.forward_kinematics(dh, th);
+
+                        std::cout << "x: " << end_point.x << "\n"
+                             << "y: " << end_point.y << "\n"
+                             << "z: " << end_point.z << "\n";
                         // ...
                         break;
                     }
