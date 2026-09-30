@@ -15,6 +15,7 @@
   <depend>libglfw3-dev</depend>
   <depend>libgl1-mesa-dev</depend>
   <depend>geometry_msgs</depend>
+  <depend>std_msgs</depend>
 
   <exec_depend>libglfw3</exec_depend>
   <exec_depend>libopengl0</exec_depend>

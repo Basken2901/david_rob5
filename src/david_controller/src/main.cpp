@@ -6,6 +6,7 @@
 
 #include "rclcpp/rclcpp.hpp"  // all headers (those ending with .hpp) must be specififed in the package.xml file. 
 #include "geometry_msgs/msg/twist_stamped.hpp"
+#include <std_msgs/msg/float64_multi_array.hpp>
 
 using namespace std::chrono_literals;
 
@@ -24,19 +25,23 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         {
         std::cout << "control_node initialized" << std::endl; //! For testing the control loop
         state_manager.set_control_mode(ControlMode::OPERATION);
-        start_control_loop();
+        
         //StateManagers
 
         //Publishers
         cmd_vel_pub_ = this->create_publisher<geometry_msgs::msg::TwistStamped>( 
         "/servo_node/delta_twist_cmds", 10); //double check the topic name
-
+        vel_pub_ = create_publisher<std_msgs::msg::Float64MultiArray>(
+        "/forward_velocity_controller/commands", 10);
         //Timer for publishing cmd_vel messages
         //timer_ = this->create_wall_timer(
         //    std::chrono::milliseconds(50), // 20 Hz
         //    std::bind(&ControlNode::vel_cmd_callback, this)); // 
-        }
+        start_time_ = this->now();
+        start_control_loop();
 
+        }
+        
         
 
     private: // here goes callback functions and member variables (variables that should only belong to this class and not be accessed by other classes)
@@ -45,8 +50,9 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         //msg.header.stamp = this->get_clock()->now(); //msg message gets the current time from the ros2 clock and assigns it to the header.stamp variable
         //msg.header.frame_id = "base_link"; // assigns the frame_id which the velocity message regards to. 
         rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr cmd_vel_pub_;
+        rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr vel_pub_;
         rclcpp::TimerBase::SharedPtr timer_;
-        
+        rclcpp::Time start_time_;//! Test
         rclcpp::TimerBase::SharedPtr control_timer;
         rclcpp::Time last_time;
 
@@ -97,24 +103,31 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
             //{
             //    last_time = now;
             //}
+            const double t = (this->now() - start_time_).seconds();
             geometry_msgs::msg::TwistStamped msg;
 
             switch (state_manager.get_control_mode())
             {
                 case ControlMode::SAFETY:
                     // ...
+                    vel_cmd_callback(msg);
                     break;
                 case ControlMode::STARTUP:
                     // ...
+                    vel_cmd_callback(msg);
                     break;
                 case ControlMode::OPERATION:
                     
-                    msg.twist.linear.x = 0.5;
-                    vel_cmd_callback(msg);
-                    // ...
-                    break;
+                    {
+                        std_msgs::msg::Float64MultiArray cmd;
+                        cmd.data = {0.3 * std::sin(2.0 * M_PI * 0.25 * t), 0.0, 0.0, 0.0, 0.0, 0.0};  // elbow only
+                        vel_pub_->publish(cmd);
+                        // ...
+                        break;
+                    }
                 case ControlMode::DEADMAN:
                     // ...
+                    vel_cmd_callback(msg);
                     break;
             }
         }
