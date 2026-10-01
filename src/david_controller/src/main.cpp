@@ -50,7 +50,11 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         
         StateManager state_manager;
         Transformations transformations;
-        ForwardKinematics forwardkinematics;
+        ForwardKinematics forward_kinematics;
+        InverseKinematics inverse_kinematics;
+        DHParam dh_;
+        TempJoint joints_;
+
         //msg.header.stamp = this->get_clock()->now(); //msg message gets the current time from the ros2 clock and assigns it to the header.stamp variable
         //msg.header.frame_id = "base_link"; // assigns the frame_id which the velocity message regards to. 
         rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr cmd_vel_pub_;
@@ -109,9 +113,18 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
             //}
             const double t = (this->now() - start_time_).seconds();
             geometry_msgs::msg::TwistStamped msg;
-            ForwardMovements end_point;
-            DHParam dh;                     
-            TempJoint th;
+            Pose target;
+            Pose end_point;
+            TempJoint tempth;
+            
+            target.x = -0.5;
+            target.y = -0.2;
+            target.z =  0.4;
+            target.roll  = M_PI;   // tool pointing straight down
+            target.pitch = 0.0;
+            target.yaw   = 0.0;
+
+            std::optional<TempJoint> result = inverse_kinematics.inverse_kinematics(dh_, target, joints_);
             switch (state_manager.get_control_mode())
             {
                 case ControlMode::SAFETY:
@@ -128,15 +141,34 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
                         //std_msgs::msg::Float64MultiArray cmd;
                         //cmd.data = {0.3 * std::sin(2.0 * M_PI * 0.25 * t), 0.0, 0.0, 0.0, 0.0, 0.0};  // elbow only
                         //vel_pub_->publish(cmd);
-                        th.theta[0] = 0.3;
-                        th.theta[1] = -1.2;
-                        th.theta[2] = 1.5;
-                        end_point = forwardkinematics.forward_kinematics(dh, th);
-
-                        std::cout << "x: " << end_point.x << "\n"
-                             << "y: " << end_point.y << "\n"
-                             << "z: " << end_point.z << "\n";
-                        // ...
+                        //th.theta[0] = 0.3;
+                        //th.theta[1] = -1.2;
+                        //th.theta[2] = 1.5;
+                        //end_point = forward_kinematics.forward_kinematics(dh, th);
+//
+                        //std::cout << "x: " << end_point.x << "\n"
+                        //     << "y: " << end_point.y << "\n"
+                        //     << "z: " << end_point.z << "\n";
+                        //// ...
+                        if (result) {
+                            const TempJoint& goal = *result;
+                            RCLCPP_INFO(get_logger(), "Joints: %.3f %.3f %.3f %.3f %.3f %.3f",
+                                        goal.theta[0], goal.theta[1], goal.theta[2],
+                                        goal.theta[3], goal.theta[4], goal.theta[5]);
+                            tempth.theta[0] = goal.theta[0];
+                            tempth.theta[1] = goal.theta[1];
+                            tempth.theta[2] = goal.theta[2];
+                            tempth.theta[3] = goal.theta[3];
+                            tempth.theta[4] = goal.theta[4];
+                            tempth.theta[5] = goal.theta[5];
+                            end_point = forward_kinematics.forward_kinematics(dh_, tempth); 
+                            std::cout << "x: " << end_point.x << "\n"
+                                << "y: " << end_point.y << "\n"
+                                << "z: " << end_point.z << "\n";
+                            // send goal.theta to the robot here
+                        } else {
+                            RCLCPP_WARN(get_logger(), "Target pose is out of reach");
+                        }
                         break;
                     }
                 case ControlMode::DEADMAN:

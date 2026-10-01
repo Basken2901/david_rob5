@@ -13,8 +13,13 @@ struct EulerAngles {
     double yaw   = 0.0;
 };
 
+
+
 struct Transformations{
     double unwrapAngle(double angle, double max, double min) const;
     EulerAngles quaternionToEuler(const Eigen::Quaterniond& q) const;
-    Eigen::Matrix4d link_transformation_matrix(double theta, double alpha, double a, double d);
+    static Eigen::Matrix4d link_transformation_matrix(double theta, double alpha, double a, double d);
+    static Eigen::Matrix4d standard_link(double theta, double alpha, double a, double d);
+    static Eigen::Matrix4d inverse_rigid(const Eigen::Matrix4d& T);
+    static double wrap(double angle);
 };

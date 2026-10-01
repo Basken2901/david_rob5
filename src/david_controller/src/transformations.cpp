@@ -45,3 +45,31 @@ Eigen::Matrix4d Transformations::link_transformation_matrix(double theta, double
         0, 0, 0,1;
     return T;
 }
+
+Eigen::Matrix4d Transformations::standard_link(double theta, double alpha, double a, double d)
+{
+    const double ct = std::cos(theta), st = std::sin(theta);
+    const double ca = std::cos(alpha), sa = std::sin(alpha);
+    Eigen::Matrix4d T;
+    T << ct, -st * ca,  st * sa, a * ct,
+         st,  ct * ca, -ct * sa, a * st,
+         0,        sa,       ca,      d,
+         0,         0,        0,      1;
+    return T;
+}
+
+Eigen::Matrix4d Transformations::inverse_rigid(const Eigen::Matrix4d& T)
+{
+    Eigen::Matrix4d Ti = Eigen::Matrix4d::Identity();
+    Ti.block<3, 3>(0, 0) = T.block<3, 3>(0, 0).transpose();
+    Ti.block<3, 1>(0, 3) = -Ti.block<3, 3>(0, 0) * T.block<3, 1>(0, 3);
+    return Ti;
+}
+
+double Transformations::wrap(double angle)
+{
+    angle = std::fmod(angle + M_PI, 2.0 * M_PI);
+    if (angle <= 0.0) angle += 2.0 * M_PI;
+    return angle - M_PI;
+}
+

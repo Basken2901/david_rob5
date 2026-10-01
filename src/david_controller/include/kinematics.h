@@ -11,10 +11,13 @@
 
 #include "transformations.h"
 
-struct ForwardMovements{
-    double x;
-    double y;
-    double z;
+struct Pose{
+    double x = 0.0;
+    double y = 0.0;
+    double z = 0.0;
+    double roll = 0.0;
+    double pitch = 0.0;
+    double yaw = 0.0;
 };
 struct DHParam {
     std::array<double, 6> alpha = {0.0, M_PI / 2, 0.0, 0.0, M_PI / 2, -M_PI / 2};
@@ -38,7 +41,17 @@ struct JointsTransform {
 class ForwardKinematics
 {
     public:
-        ForwardMovements forward_kinematics(const DHParam& dh, const TempJoint& th);
+        Pose forward_kinematics(const DHParam& dh, const TempJoint& th);
+    private:
+        Transformations transformations;
+};
+
+class InverseKinematics
+{
+    public:
+        static Eigen::Matrix4d pose_to_matrix(const Pose& position);
+        std::vector<TempJoint> all_solutions(const DHParam& dh, const Pose& target) const;
+        std::optional<TempJoint> inverse_kinematics(const DHParam& dh, const Pose& target, const TempJoint& current) const;
     private:
         Transformations transformations;
 };
