@@ -22,4 +22,5 @@ struct Transformations{
     static Eigen::Matrix4d standard_link(double theta, double alpha, double a, double d);
     static Eigen::Matrix4d inverse_rigid(const Eigen::Matrix4d& T);
     static double wrap(double angle);
+    Eigen::Vector3d quaternion_to_euler(const Eigen::Quaterniond& q) const;
 };

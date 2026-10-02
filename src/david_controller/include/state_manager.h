@@ -60,6 +60,19 @@ struct Stamped3DVector {
     void setTime(const rclcpp::Time& new_time) { timestamp = new_time; }
 };
 
+struct TrajectoryPoint {
+    Eigen::Vector3d position = Eigen::Vector3d::Zero();
+    Eigen::Quaterniond orientation = Eigen::Quaterniond::Identity();
+    Eigen::Vector3d velocity = Eigen::Vector3d::Zero();
+    Eigen::Vector3d acceleration = Eigen::Vector3d::Zero();
+};
+
+struct ScalarPoint {
+    double position = 0.0;
+    double velocity = 0.0;
+    double acceleration = 0.0;
+};
+
 class StateManager {
     public:
         void set_arm_state(const ArmState& new_data);

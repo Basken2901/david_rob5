@@ -9,6 +9,7 @@
 #include <eigen3/Eigen/Geometry>
 
 #include "transformations.h"
+#include "state_manager.h"
 
 struct Waypoint {
     Eigen::Vector3d position;
@@ -38,6 +39,9 @@ class PathPlanner
        const Eigen::Vector3d& start_pos, const Eigen::Vector3d& end_pos, const Eigen::Quaterniond& start_quat, const Eigen::Quaterniond& end_quat,
        const Eigen::Vector3d& current_velocity, const Eigen::Vector3d& current_acceleration);
       float calculateDuration(float distance, float velocity, float min_velocity, float max_velocity) const;
+      ScalarPoint evaluate_polynomial(const std::vector<double>& coefficient, double time) const;
+      TrajectoryPoint get_trajectory_point(double time) const;
+
 
 
       double get_total_time() const;
@@ -45,6 +49,7 @@ class PathPlanner
 
    private:
       Transformations transformations;
+      StateManager state_manager;
       mutable std::recursive_mutex planner_mutex_;
       
       float current_angular_velocity_ = 0.15; //!! MIGHT HAVE TO CHANGE ALL THESE, PLUS MOVE TO BETTER PLACE

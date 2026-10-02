@@ -8,6 +8,7 @@
 #include "geometry_msgs/msg/twist_stamped.hpp"
 #include <std_msgs/msg/float64_multi_array.hpp>
 
+
 using namespace std::chrono_literals;
 
 #include "path_planner.h"
@@ -52,6 +53,7 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         Transformations transformations;
         ForwardKinematics forward_kinematics;
         InverseKinematics inverse_kinematics;
+        PathPlanner path_planner;
         DHParam dh_;
         TempJoint joints_;
 
@@ -97,7 +99,7 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
                     control_timer.reset();
                 }
                 control_timer = this->create_wall_timer(
-                    std::chrono::milliseconds(10),  //100 Hz
+                    std::chrono::milliseconds(50),  //20 Hz
                     [this]() {control_loop();}
                 );
             
@@ -149,6 +151,13 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
                         //std::cout << "x: " << end_point.x << "\n"
                         //     << "y: " << end_point.y << "\n"
                         //     << "z: " << end_point.z << "\n";
+
+                        TrajectoryPoint pt = path_planner.get_trajectory_point(t);
+                        EulerAngles rpy = transformations.quaternionToEuler(pt.orientation);
+                        std::cout << "Roll: " << rpy.roll << "\n"
+                                "Pitch: " << rpy.pitch << "\n"
+                                "Yaw: " << rpy.yaw << "\n";
+
                         //// ...
                         if (result) {
                             const TempJoint& goal = *result;

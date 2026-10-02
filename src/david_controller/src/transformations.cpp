@@ -73,3 +73,29 @@ double Transformations::wrap(double angle)
     return angle - M_PI;
 }
 
+Eigen::Vector3d Transformations::quaternion_to_euler(const Eigen::Quaterniond& q) const {
+    // Get Euler angles in ZYX convention (yaw, pitch, roll)
+    Eigen::Vector3d euler = q.toRotationMatrix().eulerAngles(2, 1, 0);
+    
+    // Extract yaw, pitch, roll
+    double yaw = euler.x();
+    double pitch = euler.y();
+    double roll = euler.z();
+
+    // Normalize pitch to [-π/2, π/2] to avoid gimbal lock ambiguities
+    if (std::abs(pitch) > M_PI / 2) {
+        // Adjust yaw and flip pitch and roll to maintain equivalent rotation
+        yaw += M_PI;
+        pitch = M_PI - pitch; // Reflect pitch around π
+        roll += M_PI;
+    }
+
+    // Unwrap angles to [0, 2π]
+    yaw = unwrapAngle(yaw, M_PI, -M_PI);
+    pitch = unwrapAngle(pitch, 2 * M_PI, 0);
+    roll = unwrapAngle(roll, 2 * M_PI, 0);
+
+    // Ensure yaw is in [0, 2π] and consistent with input
+    return Eigen::Vector3d(roll, pitch, yaw);
+}
+
