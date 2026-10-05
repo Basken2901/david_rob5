@@ -14,7 +14,7 @@ find_package(rclcpp_action REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(OpenGL REQUIRED)
 find_package(geometry_msgs REQUIRED)
-find_package(std_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
 
 include_directories(include)
 
@@ -24,6 +24,7 @@ add_executable(controller
     src/state_manager.cpp
     src/transformations.cpp
     src/kinematics.cpp
+    src/controller.cpp
 )
 
 target_include_directories(controller PUBLIC
@@ -38,7 +39,8 @@ ament_target_dependencies(controller
   rclcpp
   rclcpp_action
   std_msgs
-  geometry_msgs 
+  geometry_msgs
+  sensor_msgs 
 )
 
 install(TARGETS controller

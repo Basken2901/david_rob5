@@ -1,12 +1,6 @@
 #include "kinematics.h"
 
 
-//using ur5e {
-//
-//
-//}
-
-
  Pose ForwardKinematics::forward_kinematics(const DHParam& dh, const TempJoint& th)
  {
     Eigen::Matrix4d T = Eigen::Matrix4d::Identity();
@@ -16,10 +10,15 @@
     }
     
     Pose end_point;
-
     end_point.x = T(0, 3);
     end_point.y = T(1, 3);
     end_point.z = T(2, 3);
+
+    const Eigen::Matrix3d R = T.block<3, 3>(0, 0);
+    end_point.yaw   = std::atan2(R(1, 0), R(0, 0));
+    end_point.pitch = std::atan2(-R(2, 0), std::hypot(R(0, 0), R(1, 0)));
+    end_point.roll  = std::atan2(R(2, 1), R(2, 2));
+
     return end_point;
  }
 
