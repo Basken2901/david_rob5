@@ -48,3 +48,23 @@ This launches the MoveIT planner in another Rviz window
 
 
 ros2 launch ur_robot_driver ur_control.launch.py ur_type:=ur5 robot_ip:=yyy.yyy.yyy.yyy use_mock_hardware:=true launch_rviz:=true initial_joint_controller:=forward_position_controller
+
+
+
+### To move the robot with keyboard (Temporary):
+1. First have to move it out of a singularity straight arm pose
+```
+ros2 topic pub --once /forward_position_controller/commands std_msgs/msg/Float64MultiArray "{data: [0.0, -1.57, 1.57, -1.57, -1.57, 0.0]}"
+```
+2. Then deactivate the UR_driver controller, that is blocking ours
+```
+ros2 control switch_controllers --activate forward_velocity_controller --deactivate forward_position_controller
+```
+3. Then run our controller
+```
+ros2 run david_controller controller
+```
+
+The commands are W and S to move back and forth on the y-axis.
+A and D for the x-axis.
+Z and X for the z-axis.
