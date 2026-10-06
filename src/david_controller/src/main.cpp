@@ -39,6 +39,17 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         ControlNode() : Node("control_node") //custructor of node object??
         {
         std::cout << "control_node initialized" << std::endl; //! For testing the control loop
+
+        //Declare initial parameter
+        this->declare_parameter<double>("p_controller.kp", 1.0);
+
+        p_gains.Kp = this->get_parameter("p_controller.kp").as_double();
+
+        std::cout << "Controller Gains = " << p_gains.Kp << std::endl;
+
+        controller.set_gains(
+            p_gains
+        );
         state_manager.set_control_mode(ControlMode::DEADMAN);
         
         //StateManagers
@@ -74,6 +85,10 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         InverseKinematics inverse_kinematics;
         PathPlanner path_planner;
         Controller controller;
+
+        PGains p_gains;
+
+
         DHParam dh_;
         TempJoint joints_;
 
@@ -336,23 +351,7 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
                     for (std::size_t i = 0; i < 6; ++i)
                         err[i] = q_target[i] - q[i];
 
-                    if (any_key)
-                    {
-                        RCLCPP_INFO(get_logger(), "----");
-                        RCLCPP_INFO(get_logger(), "keys  up=%d down=%d left=%d right=%d z=%d x=%d",
-                                    (bool)key_up, (bool)key_down, (bool)key_left, (bool)key_right, (bool)key_z, (bool)key_x);
-                        RCLCPP_INFO(get_logger(), "pose  x=%.4f y=%.4f z=%.4f",
-                                    target_pose_.x, target_pose_.y, target_pose_.z);
-                        RCLCPP_INFO(get_logger(), "q     %s", fmt(q).c_str());
-                        RCLCPP_INFO(get_logger(), "ik    %s", fmt(q_target).c_str());
-                        RCLCPP_INFO(get_logger(), "err   %s", fmt(err).c_str());
-                        RCLCPP_INFO(get_logger(), "vel   %s", fmt(vel).c_str());
-                    }
-                    else
-                    {
-                        RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 1000,
-                                             "idle  err %s", fmt(err).c_str());
-                    }
+                    
                     std_msgs::msg::Float64MultiArray cmd;
                     cmd.data.assign(vel.begin(), vel.end());
                     vel_pub_->publish(cmd);

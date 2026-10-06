@@ -1,9 +1,16 @@
 #include "controller.h"
 
+void Controller::set_gains(
+    const PGains& p_gains
+)
+{
+    p_gains_ = p_gains;
+}
+
 std::array<double, 6> Controller::p_controller(const std::array<double, 6>& current,
                                                const std::array<double, 6>& target)
 {
-    const double kp = 1.0;
+    const double kp = p_gains_.Kp;
     const double max_vel = 0.5;  // rad/s, safety limit
 
     std::array<double, 6> vel{};

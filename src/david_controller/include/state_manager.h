@@ -22,6 +22,10 @@ enum class ControlMode {
     DEADMAN = 3
 };
 
+struct PGains {
+    double Kp = 0.251;
+};
+
 struct ArmState {
     //! Create ros timestamp
     rclcpp::Time timestamp = rclcpp::Time(0, 0);
