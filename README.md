@@ -68,3 +68,28 @@ ros2 run david_controller controller
 The commands are W and S to move back and forth on the y-axis.
 A and D for the x-axis.
 Z and X for the z-axis.
+
+
+
+### REAL ROBOT
+
+Noter fixer senere matias....
+
+xhost +local:root
+
+docker compose -f docker_sim_compose.yml up -d
+
+docker exec -it david_docker_real bash
+
+ros2 launch ur_robot_driver ur_control.launch.py \
+  ur_type:=ur5e \
+  robot_ip:=192.168.57.101 \
+  launch_rviz:=true
+
+
+ros2 service call /io_and_status_controller/set_io ur_msgs/srv/SetIO "{fun: 1, pin: 16, state: 1.0}"
+ros2 service call /io_and_status_controller/set_io ur_msgs/srv/SetIO "{fun: 1, pin: 16, state: 0.0}"
+ros2 service call /io_and_status_controller/set_io ur_msgs/srv/SetIO "{fun: 1, pin: 17, state: 1.0}"
+ros2 service call /io_and_status_controller/set_io ur_msgs/srv/SetIO "{fun: 1, pin: 17, state: 0.0}"
+
+ros2 control switch_controllers   --deactivate scaled_joint_trajectory_controller   --activate forward_velocity_controller

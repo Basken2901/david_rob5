@@ -39,6 +39,20 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         ControlNode() : Node("control_node") //custructor of node object??
         {
         std::cout << "control_node initialized" << std::endl; //! For testing the control loop
+        std::cout <<  R"(
+        ⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⣤⣤⣴⣶⣶⣿⠿⠿⠿⢿⣶⣶⣤⣀⣀⣀⣠⣤⣤⣦⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣴⣿⡿⠿⠛⠛⠉⠉⠀⠀⠀⠀⠀⠈⢿⡏⠉⢻⣿⣿⣿⣿⣿⡆⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣼⠋⠀⠀⠀⣴⣶⡄⠀⠀⢰⣿⠀⠀⠀⠘⣷⡀⠀⢹⣿⣿⣿⣿⣿⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢠⣾⣇⣀⣤⣤⣤⣾⣿⣶⣶⣶⣿⣿⣿⣿⣿⣿⣿⣷⣾⣿⣿⣿⣿⣿⣿⡆
+⠀⠀⣠⣴⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠿⠛⠉⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠃
+⠀⣰⠋⠛⠻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣏⣁⣀⣠⣤⣴⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠀
+⣰⣷⣦⣤⣴⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠿⠟⠛⣿⣿⣿⣿⣿⣿⣿⠁⠈⠙⢿⣿⣿⣿⣿⠀⣿⠀
+⣿⣿⣿⣿⣿⣷⡀⠀⠈⠉⠉⠉⠉⠁⠀⠀⠀⠀⢀⣼⣿⣿⣿⣿⣿⣿⣿⠀⠀⠀⠘⣿⣿⣿⣿⠀⣿⠀
+⣿⣿⣿⣿⣿⣿⣷⣤⣀⣀⣀⣀⣀⣀⣀⣠⣤⣾⣿⣿⣿⣿⣿⣿⣿⣿⡟⠀⠀⠀⢀⣿⣿⣿⣿⣀⣿⠀
+⠹⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠀⠀⠀⢀⣼⣿⠛⠛⠛⠛⠃⠀
+⠀⠈⠙⠻⢿⣿⣿⣿⠿⠟⠛⠛⠛⠛⠛⠉⠉⠉⠉⠉⠀⠈⠻⣿⣿⣿⣷⣶⣶⣿⡿⠁⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠉⠉⠉⠉⠉⠉⠀⠀⠀⠀⠀⠀⠀⠀
+        )" << std::endl;
 
         //Declare initial parameter
         this->declare_parameter<double>("p_controller.kp", 1.0);
@@ -73,9 +87,11 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         //    std::bind(&ControlNode::vel_cmd_callback, this)); // 
         start_time_ = this->now();
         start_control_loop();
-
+        rclcpp::contexts::get_global_default_context()->add_pre_shutdown_callback(
+            [this]() { publishZeroVelocity(); });
         }
         ~ControlNode() { stop_keyboard_control(); }
+        
 
     private: // here goes callback functions and member variables (variables that should only belong to this class and not be accessed by other classes)
         
@@ -92,8 +108,7 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         DHParam dh_;
         TempJoint joints_;
 
-        //msg.header.stamp = this->get_clock()->now(); //msg message gets the current time from the ros2 clock and assigns it to the header.stamp variable
-        //msg.header.frame_id = "base_link"; // assigns the frame_id which the velocity message regards to. 
+        rclcpp::Time last_joint_update_{0, 0, RCL_ROS_TIME}; //for safety
         rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr cmd_vel_pub_;
         rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr vel_pub_;
         rclcpp::TimerBase::SharedPtr timer_;
@@ -139,6 +154,7 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
             }
 
             joint_positions_received_ = true;
+            last_joint_update_ = this->now();
         }
 
         std::array<double, 6> getJointPositions() {
@@ -218,6 +234,13 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
             keyboard_running = false;
             if (keyboard_thread.joinable())
                 keyboard_thread.join();
+        }
+
+        void publishZeroVelocity()
+        {
+            std_msgs::msg::Float64MultiArray cmd;
+            cmd.data.assign(6, 0.0);
+            vel_pub_->publish(cmd);
         }
 
         void start_control_loop()
@@ -313,8 +336,16 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
                     }
                 case ControlMode::DEADMAN: //! Making temp manual
                     // ...
-                    if (!joint_positions_received_)
+                    bool fresh;
+                    {
+                        std::lock_guard<std::mutex> lock(joint_positions_mutex_);
+                        fresh = joint_positions_received_ &&
+                                (this->now() - last_joint_update_).seconds() <= 0.1;
+                    }   // lock released here
+                    if (!fresh) {
+                        publishZeroVelocity();
                         break;
+                    }
                     if (!keyboard_running)
                         start_keyboard_control();
 
@@ -341,6 +372,7 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
                     if (!ik)
                     {
                         target_pose_ = previous;  // unreachable, so undo the step
+                        publishZeroVelocity();
                         RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 1000, "IK failed, target unreachable");
                         break;
                     }
@@ -380,7 +412,8 @@ int main(int argc, char * argv[])  // main function: should contain as little co
 {
 
     rclcpp::init(argc, argv); //initializing ros2 for the program
-    rclcpp::spin(std::make_shared<ControlNode>()); //keeps node active 
+    auto node = std::make_shared<ControlNode>();
+    rclcpp::spin(node); //keeps node active 
     rclcpp::shutdown(); //shuts down the node when the program is terminated
 
     return 0;
