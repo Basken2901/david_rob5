@@ -18,6 +18,15 @@ find_package(sensor_msgs REQUIRED)
 
 include_directories(include)
 
+Install(PROGRAMS
+  scripts/UR5e_msg_translator.py
+  DESTINATION lib/${PROJECT_NAME}
+
+
+
+)
+
+
 add_executable(controller
     src/main.cpp
     src/path_planner.cpp
