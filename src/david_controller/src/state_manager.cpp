@@ -76,3 +76,19 @@ Stamped3DVector StateManager::getGlobalAcceleration() {
     std::lock_guard<std::mutex> lock(arm_global_acceleration_mutex_);
     return arm_global_acceleration_;
 }
+void StateManager::setJointPositions(const sensor_msgs::msg::JointState& msg) {
+    std::lock_guard<std::mutex> lock(joint_positions_mutex_);
+    for (size_t i = 0; i < msg.name.size() && i < msg.position.size(); ++i) {
+                for (size_t j = 0; j < JOINT_NAMES.size(); ++j) {
+                    if (msg.name[i] == JOINT_NAMES[j]) {
+                        joint_positions_[j] = msg.position[i];
+                        break;
+                    }
+                }
+    }
+}
+
+std::array<double, 6> StateManager::getJointPositions() {
+            std::lock_guard<std::mutex> lock(joint_positions_mutex_);
+            return joint_positions_;
+}

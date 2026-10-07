@@ -7,6 +7,7 @@
 #include <eigen3/Eigen/Geometry>
 #include <eigen3/Eigen/StdVector>
 #include "rclcpp/rclcpp.hpp"
+#include <sensor_msgs/msg/joint_state.hpp>
 
 enum class TrajectoryMode {
     UNINITIALIZED = -1,
@@ -19,7 +20,8 @@ enum class ControlMode {
     SAFETY = 0,
     STARTUP = 1,
     OPERATION = 2,
-    DEADMAN = 3
+    DEADMAN = 3,
+    TEST = 4
 };
 
 struct PGains {
@@ -93,6 +95,8 @@ class StateManager {
         Stamped3DVector getGlobalVelocity();
         void setGlobalAcceleration(const Stamped3DVector& acceleration);
         Stamped3DVector getGlobalAcceleration();
+        void setJointPositions(const sensor_msgs::msg::JointState& msg);
+        std::array<double, 6> getJointPositions();
         
 
     private:
@@ -111,5 +115,12 @@ class StateManager {
         std::mutex arm_global_velocity_mutex_;
         Stamped3DVector arm_global_acceleration_;
         std::mutex arm_global_acceleration_mutex_;
+
+        std::mutex joint_positions_mutex_;
+        std::array<double, 6> joint_positions_{};
+
+        static constexpr std::array<const char*, 6> JOINT_NAMES = {
+            "shoulder_pan_joint", "shoulder_lift_joint", "elbow_joint",
+            "wrist_1_joint", "wrist_2_joint", "wrist_3_joint"};
 
 };

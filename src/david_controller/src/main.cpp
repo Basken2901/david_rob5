@@ -38,20 +38,20 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
     public:
         ControlNode() : Node("control_node") //custructor of node object??
         {
-        std::cout << "control_node initialized" << std::endl; //! For testing the control loop
+        std::cout << "control_node initialized" << std::endl;
         std::cout <<  R"(
-        ⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⣤⣤⣴⣶⣶⣿⠿⠿⠿⢿⣶⣶⣤⣀⣀⣀⣠⣤⣤⣦⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣴⣿⡿⠿⠛⠛⠉⠉⠀⠀⠀⠀⠀⠈⢿⡏⠉⢻⣿⣿⣿⣿⣿⡆⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣼⠋⠀⠀⠀⣴⣶⡄⠀⠀⢰⣿⠀⠀⠀⠘⣷⡀⠀⢹⣿⣿⣿⣿⣿⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢠⣾⣇⣀⣤⣤⣤⣾⣿⣶⣶⣶⣿⣿⣿⣿⣿⣿⣿⣷⣾⣿⣿⣿⣿⣿⣿⡆
-⠀⠀⣠⣴⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠿⠛⠉⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠃
-⠀⣰⠋⠛⠻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣏⣁⣀⣠⣤⣴⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠀
-⣰⣷⣦⣤⣴⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠿⠟⠛⣿⣿⣿⣿⣿⣿⣿⠁⠈⠙⢿⣿⣿⣿⣿⠀⣿⠀
-⣿⣿⣿⣿⣿⣷⡀⠀⠈⠉⠉⠉⠉⠁⠀⠀⠀⠀⢀⣼⣿⣿⣿⣿⣿⣿⣿⠀⠀⠀⠘⣿⣿⣿⣿⠀⣿⠀
-⣿⣿⣿⣿⣿⣿⣷⣤⣀⣀⣀⣀⣀⣀⣀⣠⣤⣾⣿⣿⣿⣿⣿⣿⣿⣿⡟⠀⠀⠀⢀⣿⣿⣿⣿⣀⣿⠀
-⠹⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠀⠀⠀⢀⣼⣿⠛⠛⠛⠛⠃⠀
-⠀⠈⠙⠻⢿⣿⣿⣿⠿⠟⠛⠛⠛⠛⠛⠉⠉⠉⠉⠉⠀⠈⠻⣿⣿⣿⣷⣶⣶⣿⡿⠁⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠉⠉⠉⠉⠉⠉⠀⠀⠀⠀⠀⠀⠀⠀
+                    ⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⣤⣤⣴⣶⣶⣿⠿⠿⠿⢿⣶⣶⣤⣀⣀⣀⣠⣤⣤⣦⠀⠀
+            ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣴⣿⡿⠿⠛⠛⠉⠉⠀⠀⠀⠀⠀⠈⢿⡏⠉⢻⣿⣿⣿⣿⣿⡆⠀
+            ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣼⠋⠀⠀⠀⣴⣶⡄⠀⠀⢰⣿⠀⠀⠀⠘⣷⡀⠀⢹⣿⣿⣿⣿⣿⠀
+            ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢠⣾⣇⣀⣤⣤⣤⣾⣿⣶⣶⣶⣿⣿⣿⣿⣿⣿⣿⣷⣾⣿⣿⣿⣿⣿⣿⡆ 
+            ⠀⠀⣠⣴⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠿⠛⠉⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠃
+            ⠀⣰⠋⠛⠻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣏⣁⣀⣠⣤⣴⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠀
+            ⣰⣷⣦⣤⣴⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠿⠟⠛⣿⣿⣿⣿⣿⣿⣿⠁⠈⠙⢿⣿⣿⣿⣿⠀⣿⠀
+            ⣿⣿⣿⣿⣿⣷⡀⠀⠈⠉⠉⠉⠉⠁⠀⠀⠀⠀⢀⣼⣿⣿⣿⣿⣿⣿⣿⠀⠀⠀⠘⣿⣿⣿⣿⠀⣿⠀
+            ⣿⣿⣿⣿⣿⣿⣷⣤⣀⣀⣀⣀⣀⣀⣀⣠⣤⣾⣿⣿⣿⣿⣿⣿⣿⣿⡟⠀⠀⠀⢀⣿⣿⣿⣿⣀⣿⠀
+            ⠹⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠀⠀⠀⢀⣼⣿⠛⠛⠛⠛⠃⠀
+            ⠀⠈⠙⠻⢿⣿⣿⣿⠿⠟⠛⠛⠛⠛⠛⠉⠉⠉⠉⠉⠀⠈⠻⣿⣿⣿⣷⣶⣶⣿⡿⠁⠀⠀⠀⠀⠀⠀
+            ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠉⠉⠉⠉⠉⠉⠀⠀⠀⠀⠀⠀⠀⠀
         )" << std::endl;
 
         //Declare initial parameter
@@ -64,7 +64,7 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         controller.set_gains(
             p_gains
         );
-        state_manager.set_control_mode(ControlMode::DEADMAN);
+        state_manager.set_control_mode(ControlMode::TEST);
         
         //StateManagers
 
@@ -78,7 +78,7 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         "/joint_states", 10,
         [this](const sensor_msgs::msg::JointState::SharedPtr msg)
         {
-            setJointPositions(*msg);
+            joint_callback(*msg);
         });
 
         //Timer for publishing cmd_vel messages
@@ -95,6 +95,7 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
 
     private: // here goes callback functions and member variables (variables that should only belong to this class and not be accessed by other classes)
         
+        //-------------Create object of classes------
         StateManager state_manager;
         Transformations transformations;
         ForwardKinematics forward_kinematics;
@@ -102,39 +103,35 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         PathPlanner path_planner;
         Controller controller;
 
+        //-----------Variables-----------------
         PGains p_gains;
-
-
         DHParam dh_;
         TempJoint joints_;
+        Pose target_pose_;
 
-        rclcpp::Time last_joint_update_{0, 0, RCL_ROS_TIME}; //for safety
+        //-----------Publishers and subcribers-----------
         rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr cmd_vel_pub_;
         rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr vel_pub_;
+        rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr joint_sub_;
+
+        //-----------Timers---------------------
         rclcpp::TimerBase::SharedPtr timer_;
         rclcpp::Time start_time_;//! Test
         rclcpp::TimerBase::SharedPtr control_timer;
         rclcpp::Time last_time;
-        std::atomic<bool> joint_positions_received_{false}; //To wait until joint angles arrive
 
-        
+
+        //------Thread safety for when running the keyboard command-----------
         std::thread keyboard_thread;
-
         std::atomic<bool> key_up{false}, key_down{false}, key_left{false},
                   key_right{false}, key_z{false}, key_x{false};
         std::atomic<bool> keyboard_running{false};
-
-        Pose target_pose_;
+        std::mutex main_joint_positions_mutex_;
+        std::atomic<bool> joint_positions_received_{false}; //To wait until joint angles arrive
+        rclcpp::Time last_joint_update_{0, 0, RCL_ROS_TIME}; //for safety
         bool target_initialized_ = false;
         static constexpr double STEP = 0.005;
 
-        std::array<double, 6> joint_positions_{}; //! TEMP
-        std::mutex joint_positions_mutex_;
-        rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr joint_sub_;
-
-        static constexpr std::array<const char*, 6> JOINT_NAMES = {
-            "shoulder_pan_joint", "shoulder_lift_joint", "elbow_joint",
-            "wrist_1_joint", "wrist_2_joint", "wrist_3_joint"}; //! Test
 
         void vel_cmd_callback(geometry_msgs::msg::TwistStamped cmd_vel) // as of now, this function creates twist.stamped messages containing a point in time, frame-id, and a linear velocity in the x direction. The message is then published to the topic "/servo_node/delta_twist_cmds"
         {// creates blank twist stamped variable named cmd_vel
@@ -142,26 +139,27 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
             cmd_vel.header.frame_id = "base_link"; // cmd_vel message gets the frame_id set to "base_link" 
             cmd_vel_pub_->publish(cmd_vel); //publishes the message to the topic
         }
-        void setJointPositions(const sensor_msgs::msg::JointState& msg) {
-            std::lock_guard<std::mutex> lock(joint_positions_mutex_);
-            for (size_t i = 0; i < msg.name.size() && i < msg.position.size(); ++i) {
-                for (size_t j = 0; j < JOINT_NAMES.size(); ++j) {
-                    if (msg.name[i] == JOINT_NAMES[j]) {
-                        joint_positions_[j] = msg.position[i];
-                        break;
-                    }
-                }
-            }
-
+        void joint_callback(const sensor_msgs::msg::JointState& msg)
+        {
+            state_manager.setJointPositions(msg);
             joint_positions_received_ = true;
             last_joint_update_ = this->now();
-        }
 
-        std::array<double, 6> getJointPositions() {
-            std::lock_guard<std::mutex> lock(joint_positions_mutex_);
-            return joint_positions_;
         }
-
+        void publishZeroVelocity()
+        {
+            std_msgs::msg::Float64MultiArray cmd;
+            cmd.data.assign(6, 0.0);
+            vel_pub_->publish(cmd);
+        }
+        static std::string fmt(const std::array<double, 6>& a) //Help to see what we publish
+        {
+            char buf[128];
+            std::snprintf(buf, sizeof(buf), "[%7.3f %7.3f %7.3f %7.3f %7.3f %7.3f]",
+                          a[0], a[1], a[2], a[3], a[4], a[5]);
+            return buf;
+        }
+        //------------------------Trajectory functions------------------------------------------
         void activate_trajectory(float trajectory_duration){
             ArmState arm_state = state_manager.get_arm_state();
             arm_state.trajectory_mode = TrajectoryMode::ACTIVE;
@@ -171,22 +169,7 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
             state_manager.set_arm_state(arm_state);
         }
 
-        double evalPoly(const std::vector<double>& c, double t) { //! TEMP
-            double result = 0.0;
-            for (int k = static_cast<int>(c.size()) - 1; k >= 0; --k) {
-                result = result * t + c[k];
-            }
-            return result;
-        }
-
-        static std::string fmt(const std::array<double, 6>& a) //Help to see what we publish
-        {
-            char buf[128];
-            std::snprintf(buf, sizeof(buf), "[%7.3f %7.3f %7.3f %7.3f %7.3f %7.3f]",
-                          a[0], a[1], a[2], a[3], a[4], a[5]);
-            return buf;
-        }
-
+        //---------------------Keyboard functions---------------------------------------------
         void start_keyboard_control()
         {
             keyboard_running = true;
@@ -235,13 +218,7 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
             if (keyboard_thread.joinable())
                 keyboard_thread.join();
         }
-
-        void publishZeroVelocity()
-        {
-            std_msgs::msg::Float64MultiArray cmd;
-            cmd.data.assign(6, 0.0);
-            vel_pub_->publish(cmd);
-        }
+        //------------------------------------Control loop----------------------------
 
         void start_control_loop()
         {
@@ -285,11 +262,9 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
             {
                 case ControlMode::SAFETY:
                     // ...
-                    vel_cmd_callback(msg);
                     break;
                 case ControlMode::STARTUP:
                     // ...
-                    vel_cmd_callback(msg);
                     break;
                 case ControlMode::OPERATION:
                     
@@ -334,11 +309,17 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
                         //}
                         break;
                     }
-                case ControlMode::DEADMAN: //! Making temp manual
+                case ControlMode::DEADMAN:
                     // ...
+                    {
+                    
+                    break;
+                    }
+                case ControlMode::TEST:
+                {
                     bool fresh;
                     {
-                        std::lock_guard<std::mutex> lock(joint_positions_mutex_);
+                        std::lock_guard<std::mutex> lock(main_joint_positions_mutex_);
                         fresh = joint_positions_received_ &&
                                 (this->now() - last_joint_update_).seconds() <= 0.1;
                     }   // lock released here
@@ -349,7 +330,7 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
                     if (!keyboard_running)
                         start_keyboard_control();
 
-                    auto q = getJointPositions();
+                    auto q = state_manager.getJointPositions();
                     TempJoint current{q};
                     if (!target_initialized_)
                     {
@@ -389,6 +370,7 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
                     vel_pub_->publish(cmd);
 
                     break;
+                }
             }
         }
 
