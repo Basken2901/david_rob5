@@ -1,5 +1,6 @@
 #pragma once
 
+#include <string>
 #include <chrono>
 #include <vector>
 #include <eigen3/Eigen/Dense>
@@ -7,6 +8,7 @@
 #include <eigen3/Eigen/Geometry>
 #include <eigen3/Eigen/StdVector>
 #include "rclcpp/rclcpp.hpp"
+#include <sensor_msgs/msg/joint_state.hpp>
 
 enum class TrajectoryMode {
     UNINITIALIZED = -1,
@@ -60,6 +62,14 @@ struct Stamped3DVector {
     void setTime(const rclcpp::Time& new_time) { timestamp = new_time; }
 };
 
+struct JointState {
+    rclcpp::Time timestamp = rclcpp::Time(0, 0);
+    std::vector<std::string> names;
+    std::vector<double> positions;
+    std::vector<double> velocities;
+    std::vector<double> efforts;
+};
+
 class StateManager {
     public:
         void set_arm_state(const ArmState& new_data);
@@ -76,6 +86,8 @@ class StateManager {
         Stamped3DVector getGlobalVelocity();
         void setGlobalAcceleration(const Stamped3DVector& acceleration);
         Stamped3DVector getGlobalAcceleration();
+        void setJointState(const JointState& state);
+        JointState getJointState();
         
 
     private:
@@ -94,5 +106,7 @@ class StateManager {
         std::mutex arm_global_velocity_mutex_;
         Stamped3DVector arm_global_acceleration_;
         std::mutex arm_global_acceleration_mutex_;
+        JointState joint_state_;
+        std::mutex joint_state_mutex_;
 
 };

@@ -76,3 +76,15 @@ Stamped3DVector StateManager::getGlobalAcceleration() {
     std::lock_guard<std::mutex> lock(arm_global_acceleration_mutex_);
     return arm_global_acceleration_;
 }
+
+///Joint state management
+
+void StateManager::setJointState(const JointState& state) {
+    std::lock_guard<std::mutex> lock(joint_state_mutex_);
+    joint_state_ = state;
+}
+
+JointState StateManager::getJointState() {
+    std::lock_guard<std::mutex> lock(joint_state_mutex_);
+    return joint_state_;
+}
