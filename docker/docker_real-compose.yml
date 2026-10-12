@@ -1,0 +1,24 @@
+# Compose file for the PHYSICAL UR5e (robot at 192.168.57.101, PC at 192.168.57.1).
+# The simulator setup stays in docker-compose.yml.
+#
+# Start:  docker compose -f docker-compose.real.yml up -d
+# Enter:  docker exec -it david_docker_real bash
+# Stop:   docker compose -f docker-compose.real.yml down
+
+name: ur_real
+
+services:
+  ros2:
+    build: .
+    image: docker-ros2            # reuse the image built by the sim compose file
+    container_name: david_docker_real
+    network_mode: host            # robot must be able to connect back on ports 50001-50004
+    volumes:
+      - ..:/ros2_ws
+      - /tmp/.X11-unix:/tmp/.X11-unix
+    environment:
+      - DISPLAY=${DISPLAY}
+      - QT_X11_NO_MITSHM=1
+      - ROS_DOMAIN_ID=1           # keep separate from the sim container's ROS graph
+    stdin_open: true
+    tty: true
