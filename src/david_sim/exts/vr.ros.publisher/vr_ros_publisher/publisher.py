@@ -6,18 +6,32 @@ import omni.kit.app
 import omni.usd
 from omni.kit.xr.core import XRCore
 from pxr import UsdGeom
+from david_interfaces.msg import (
+    VRInput,
+    VRRightController,
+    VRLeftController,
+    VRHead,
+)
+
 
 
 class VRROSPublisherExtension(omni.ext.IExt):
     def on_startup(self, ext_id):
         import rclpy
         from rclpy.context import Context
-        from geometry_msgs.msg import PoseStamped
-        from std_msgs.msg import Bool, Float32
+        from geometry_msgs.msg import Pose
+        from david_interfaces.msg import (
+            VRInput,
+            VRRightController,
+            VRLeftController,
+            VRHead,
+        )
 
-        self._PoseStamped = PoseStamped
-        self._Bool = Bool
-        self._Float32 = Float32
+        self._Pose = Pose
+        self._VRInput = VRInput
+        self._VRRightController = VRRightController
+        self._VRLeftController = VRLeftController
+        self._VRHead = VRHead
 
         self._context = Context()
         self._context.init(args=[])
@@ -27,64 +41,34 @@ class VRROSPublisherExtension(omni.ext.IExt):
             start_parameter_services=False,
         )
 
-        self._devices = {
-            "left": "/user/hand/left",
-            "right": "/user/hand/right",
-            "head": "/user/head",
-        }
+        # One publisher containing all devices.
+        self._publisher = self._node.create_publisher(
+            VRInput, "/vr/input", 1
+        )
 
-        self._pose_pubs = {
-            name: self._node.create_publisher(
-                PoseStamped, f"/vr/{name}/pose", 1
-            )
-            for name in self._devices
-        }
-
-        self._clutch_pubs = {}
-        self._trigger_pubs = {}
-
-        for hand in ("left", "right"):
-            self._clutch_pubs[hand] = self._node.create_publisher(
-                Bool, f"/vr/{hand}/clutch", 1
-            )
-            self._trigger_pubs[hand] = self._node.create_publisher(
-                Float32, f"/vr/{hand}/gripper", 1
-            )
-
-        self._last_error = {
-            name: float("-inf") for name in self._devices
-        }
+        self._last_error = {}
         self._reported = set()
 
         self._subscription = (
             omni.kit.app.get_app()
             .get_update_event_stream()
             .create_subscription_to_pop(
-                self._update, name="David VR ROS publisher"
+                self._update, name="David combined VR publisher"
             )
         )
 
-        print(
-            "[VR ROS] Publisher ready: left, right, head",
-            flush=True,
-        )
+        print("[VR ROS] Publishing combined input on /vr/input", flush=True)
 
-    def _publish_buttons(self, hand, squeeze, trigger):
-        clutch = self._Bool()
-        clutch.data = squeeze > 0.6
-        self._clutch_pubs[hand].publish(clutch)
+    def _read_pose(self, device, pose_name, scale):
+        if not device.has_pose(pose_name):
+            raise RuntimeError("Pose unavailable")
 
-        gripper = self._Float32()
-        gripper.data = max(0.0, min(1.0, trigger))
-        self._trigger_pubs[hand].publish(gripper)
-
-    def _make_pose(self, pose, scale, stamp):
-        position = pose.ExtractTranslation()
-        quaternion = pose.ExtractRotationQuat()
-        imaginary = quaternion.GetImaginary()
+        matrix = device.get_virtual_world_pose(pose_name)
+        position = matrix.ExtractTranslation()
+        quaternion = matrix.ExtractRotationQuat()
 
         x, y, z = (float(v) for v in position)
-        qx, qy, qz = (float(v) for v in imaginary)
+        qx, qy, qz = (float(v) for v in quaternion.GetImaginary())
         qw = float(quaternion.GetReal())
 
         if not all(
@@ -96,89 +80,113 @@ class VRROSPublisherExtension(omni.ext.IExt):
         if norm < 1e-8:
             raise RuntimeError("Invalid quaternion")
 
-        message = self._PoseStamped()
-        message.header.stamp = stamp
-        message.header.frame_id = "isaac_world"
+        pose = self._Pose()
+        pose.position.x = x * scale
+        pose.position.y = y * scale
+        pose.position.z = z * scale
+        pose.orientation.x = qx / norm
+        pose.orientation.y = qy / norm
+        pose.orientation.z = qz / norm
+        pose.orientation.w = qw / norm
+        return pose
 
-        message.pose.position.x = x * scale
-        message.pose.position.y = y * scale
-        message.pose.position.z = z * scale
+    def _read_click(self, device, input_name):
+        # Missing buttons remain false.
+        if not device.has_input_gesture(input_name, "click"):
+            return False
 
-        message.pose.orientation.x = qx / norm
-        message.pose.orientation.y = qy / norm
-        message.pose.orientation.z = qz / norm
-        message.pose.orientation.w = qw / norm
+        value = float(
+            device.get_input_gesture_value(input_name, "click")
+        )
+        if not math.isfinite(value):
+            raise RuntimeError(f"Invalid {input_name} button value")
+        return value > 0.5
 
-        return message
+    def _read_controller(self, xr, hand, scale):
+        device = xr.get_input_device(f"/user/hand/{hand}")
+        if device is None:
+            raise RuntimeError("Controller unavailable")
+
+        result = (
+            self._VRRightController()
+            if hand == "right"
+            else self._VRLeftController()
+        )
+        result.pose = self._read_pose(device, "grip", scale)
+
+        squeeze = float(
+            device.get_input_gesture_value("squeeze", "value")
+        )
+        if not math.isfinite(squeeze):
+            raise RuntimeError("Invalid squeeze value")
+        result.dms = max(0.0, min(1.0, squeeze))
+
+        result.trigger = self._read_click(device, "trigger")
+        result.thumbstick_click = self._read_click(device, "thumbstick")
+
+        if hand == "right":
+            result.a = self._read_click(device, "a")
+            result.b = self._read_click(device, "b")
+        else:
+            result.x = self._read_click(device, "x")
+            result.y = self._read_click(device, "y")
+            result.menu = self._read_click(device, "menu")
+
+        result.pose_available = True
+        return result
+
+    def _read_head(self, xr, scale):
+        device = xr.get_input_device("/user/head")
+        if device is None:
+            raise RuntimeError("Headset unavailable")
+
+        result = self._VRHead()
+        result.pose = self._read_pose(device, "", scale)
+        result.pose_available = True
+        return result
+
+    def _report_error(self, name, error):
+        now = time.monotonic()
+        if now - self._last_error.get(name, float("-inf")) > 3.0:
+            print(f"[VR ROS] Waiting for {name}: {error}", flush=True)
+            self._last_error[name] = now
 
     def _update(self, event):
+        # New message every update: failed device reads leave buttons
+        # false, DMS zero, and pose_available false.
+        message = self._VRInput()
+        message.header.stamp = self._node.get_clock().now().to_msg()
+        message.header.frame_id = "isaac_world"
+
         stage = omni.usd.get_context().get_stage()
-        xr = XRCore.get_singleton()
-        stamp = self._node.get_clock().now().to_msg()
 
-        # Handle devices independently: one missing controller must
-        # not prevent the other controller or headset publishing.
-        for name, path in self._devices.items():
-            try:
-                if stage is None:
-                    raise RuntimeError("No USD stage open")
+        try:
+            if stage is None:
+                raise RuntimeError("No USD stage open")
 
-                device = xr.get_input_device(path)
+            xr = XRCore.get_singleton()
+            scale = UsdGeom.GetStageMetersPerUnit(stage)
 
-                if device is None:
-                    raise RuntimeError("Device unavailable")
+            for name in ("right", "left", "head"):
+                try:
+                    if name == "head":
+                        result = self._read_head(xr, scale)
+                    else:
+                        result = self._read_controller(xr, name, scale)
 
-                if name == "head":
-                    if not device.has_pose(""):
-                        raise RuntimeError("Head pose unavailable")
-                    pose = device.get_virtual_world_pose("")
-                else:
-                    if not device.has_pose("grip"):
-                        raise RuntimeError("Grip pose unavailable")
-                    pose = device.get_virtual_world_pose("grip")
+                    setattr(message, name, result)
 
-                message = self._make_pose(
-                    pose,
-                    UsdGeom.GetStageMetersPerUnit(stage),
-                    stamp,
-                )
+                    if name not in self._reported:
+                        print(f"[VR ROS] Reading {name}", flush=True)
+                        self._reported.add(name)
 
-                if name != "head":
-                    squeeze = float(
-                        device.get_input_gesture_value(
-                            "squeeze", "value"
-                        )
-                    )
-                    trigger = float(
-                        device.get_input_gesture_value(
-                            "trigger", "value"
-                        )
-                    )
-                    if not all(
-                        math.isfinite(v) for v in (squeeze, trigger)
-                    ):
-                        raise RuntimeError("Non-finite trigger data")
+                except Exception as error:
+                    self._report_error(name, error)
 
-                self._pose_pubs[name].publish(message)
+        except Exception as error:
+            self._report_error("XR", error)
 
-                if name != "head":
-                    self._publish_buttons(name, squeeze, trigger)
-
-                if name not in self._reported:
-                    print(f"[VR ROS] Publishing {name}", flush=True)
-                    self._reported.add(name)
-
-            except Exception as error:
-                if name != "head":
-                    self._publish_buttons(name, 0.0, 0.0)
-
-                now = time.monotonic()
-                if now - self._last_error[name] > 3.0:
-                    print(
-                        f"[VR ROS] Waiting for {name}: {error}",
-                        flush=True,
-                    )
-                    self._last_error[name] = now
+        self._publisher.publish(message)
 
     def on_shutdown(self):
         self._subscription = None
