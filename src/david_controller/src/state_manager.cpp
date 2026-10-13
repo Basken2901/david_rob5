@@ -77,14 +77,56 @@ Stamped3DVector StateManager::getGlobalAcceleration() {
     return arm_global_acceleration_;
 }
 
-///Joint state management
+// Joint state management
 
-void StateManager::setJointState(const JointState& state) {
-    std::lock_guard<std::mutex> lock(joint_state_mutex_);
-    joint_state_ = state;
+void StateManager::setJointStateLeft(const JointState& state) {
+    std::lock_guard<std::mutex> lock(joint_state_left_mutex_);
+    joint_state_left_ = state;
 }
 
-JointState StateManager::getJointState() {
-    std::lock_guard<std::mutex> lock(joint_state_mutex_);
-    return joint_state_;
+JointState StateManager::getJointStateLeft() {
+    std::lock_guard<std::mutex> lock(joint_state_left_mutex_);
+    return joint_state_left_;
+}
+
+void StateManager::setJointStateRight(const JointState& state) {
+    std::lock_guard<std::mutex> lock(joint_state_right_mutex_);
+    joint_state_right_ = state;
+}
+
+JointState StateManager::getJointStateRight() {
+    std::lock_guard<std::mutex> lock(joint_state_right_mutex_);
+    return joint_state_right_;
+}
+
+// VR state management
+
+void StateManager::setVRControllerLeft(const VRState& state){
+    std::lock_guard<std::mutex> lock(vr_controller_left_mutex_);
+    vr_controller_left_ = state;
+}
+
+VRState StateManager::getVRControllerLeft() {
+    std::lock_guard<std::mutex> lock(vr_controller_left_mutex_);
+    return vr_controller_left_;
+}
+
+void StateManager::setVRControllerRight(const VRState& state){
+    std::lock_guard<std::mutex> lock(vr_controller_right_mutex_);
+    vr_controller_right_ = state;
+}
+
+VRState StateManager::getVRControllerRight() {
+    std::lock_guard<std::mutex> lock(vr_controller_right_mutex_);
+    return vr_controller_right_;
+}
+
+void StateManager::setVRHead(const VRState& state){
+    std::lock_guard<std::mutex> lock(vr_head_mutex_);
+    vr_head_ = state;
+}
+
+VRState StateManager::getVRHead() {
+    std::lock_guard<std::mutex> lock(vr_head_mutex_);
+    return vr_head_;
 }

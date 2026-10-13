@@ -15,6 +15,7 @@ find_package(std_msgs REQUIRED)
 find_package(OpenGL REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
 
 include_directories(include)
 
@@ -38,6 +39,7 @@ ament_target_dependencies(controller
   rclcpp_action
   std_msgs
   geometry_msgs 
+  sensor_msgs
 )
 
 install(TARGETS controller

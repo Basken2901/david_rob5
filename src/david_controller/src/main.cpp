@@ -3,15 +3,23 @@
 #include <memory>
 #include <cstring>
 #include <iostream>
+#include <cmath>
+#include <mutex>
 
 #include "rclcpp/rclcpp.hpp"  // all headers (those ending with .hpp) must be specififed in the package.xml file. 
 #include "geometry_msgs/msg/twist_stamped.hpp"
+#include "geometry_msgs/msg/pose_stamped.hpp"
 #include <std_msgs/msg/float64_multi_array.hpp>
+#include "sensor_msgs/msg/joint_state.hpp"
+#include "std_msgs/msg/bool.hpp"
+#include "std_msgs/msg/float32.hpp"
+#include "std_msgs/msg/float64_multi_array.hpp"
 
 using namespace std::chrono_literals;
 
 #include "path_planner.h"
 #include "state_manager.h"
+
 
 
 
@@ -37,8 +45,12 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         //timer_ = this->create_wall_timer(
         //    std::chrono::milliseconds(50), // 20 Hz
         //    std::bind(&ControlNode::vel_cmd_callback, this)); // 
+
+        //Subscribers
+
+
         start_time_ = this->now();
-        start_control_loop();
+        start_control_loop();        
 
         }
         
@@ -70,6 +82,28 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
             arm_state.trajectory_start_time = clock.now();
             arm_state.trajectory_duration = rclcpp::Duration::from_seconds(trajectory_duration);
             state_manager.set_arm_state(arm_state);
+        }
+
+        void vr_state_callback(const VRState& vr_state) {
+
+            VRState global_position;
+            global_position.left_pose = vr_state.left_pose;
+            global_position.right_pose = vr_state.right_pose;
+            global_position.head_pose = vr_state.head_pose;
+
+            state_manager.setVRControllerLeft(global_position.left_pose);
+            state_manager.setVRControllerRight(global_position.right_pose);
+            state_manager.setVRHead(global_position.head_pose);
+
+            VRState global_orientation;
+            global_orientation.left_orientation = vr_state.left_orientation;
+            global_orientation.right_orientation = vr_state.right_orientation;
+            global_orientation.head_orientation = vr_state.head_orientation;
+
+            state_manager.setVRControllerLeft(global_orientation.left_orientation);
+            state_manager.setVRControllerRight(global_orientation.right_orientation);
+            state_manager.setVRHead(global_orientation.head_orientation);
+
         }
 
         double evalPoly(const std::vector<double>& c, double t) { //! TEMP
