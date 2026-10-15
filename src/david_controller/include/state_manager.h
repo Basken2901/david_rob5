@@ -8,6 +8,7 @@
 #include <eigen3/Eigen/Geometry>
 #include <eigen3/Eigen/StdVector>
 #include "rclcpp/rclcpp.hpp"
+#include <sensor_msgs/msg/joint_state.hpp>
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include <mutex>
 
@@ -15,11 +16,16 @@ constexpr std::size_t UR5E_DOF = 6;
 
 enum class TrajectoryMode {
     UNINITIALIZED = -1,
-    INACTIVE = 0,
-    ACTIVE = 1,
     COMPLETED = 2
 };
 
+
+enum class ControlMode {
+    SAFETY = 0,
+    STARTUP = 1,
+    OPERATION = 2,
+    DEADMAN = 3
+};
 struct ArmState {
     //! Create ros timestamp
     rclcpp::Time timestamp = rclcpp::Time(0, 0);
