@@ -73,7 +73,7 @@ Z and X for the z-axis.
 
 ### REAL ROBOT
 
-Noter fixer senere matias....
+Noter fixer senere mathias....
 
 xhost +local:root
 
@@ -93,3 +93,22 @@ ros2 service call /io_and_status_controller/set_io ur_msgs/srv/SetIO "{fun: 1, p
 ros2 service call /io_and_status_controller/set_io ur_msgs/srv/SetIO "{fun: 1, pin: 17, state: 0.0}"
 
 ros2 control switch_controllers   --deactivate scaled_joint_trajectory_controller   --activate forward_velocity_controller
+
+### Connection to the physcial robot (SSH connection)
+1. Connect to the TP-LINK_2.4GHz_FFD51D Wifi
+2. Change the IPV4 methods to manual
+
+When changed to manual update these addresses
+Address: 192.168.0.x (x means a value between 1 and 256. NOT 100, 101, 102 or 103!)
+Netmask: 255.255.255.0
+Gateway: 192.168.0.1
+DNS: 8.8.8.8
+
+3. SSH into the PC
+```
+ssh gr141@192.168.0.100
+```
+4. To logout
+```
+exit
+```
