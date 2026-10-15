@@ -16,6 +16,8 @@ constexpr std::size_t UR5E_DOF = 6;
 
 enum class TrajectoryMode {
     UNINITIALIZED = -1,
+    INACTIVE = 0,
+    ACTIVE = 1,
     COMPLETED = 2
 };
 
