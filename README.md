@@ -46,5 +46,20 @@ ros2 launch ur_moveit_config ur_moveit.launch.py   ur_type:=ur5 launch_rviz:=tru
 ```
 This launches the MoveIT planner in another Rviz window
 
+### To launch IsaacSim with steamVR and publishers
+
+1. Launch steamVR through steam
+2. Connect vr headset to steamapp and link to host pc
+3. Get the correct root from David workspace root
+```
+realpath src/david_sim/exts
+```
+4. Run the command, replacing "/absolute/path/from/realpath" with the workspace path
+```
+cd ~/isaacsim
+XR_RUNTIME_JSON="$HOME/.steam/debian-installation/steamapps/common/SteamVR/steamxr_linux64.json" \
+./isaac-sim.xr.vr.sh \
+  --ext-folder "/absolute/path/from/realpath" \
+
 
 ros2 launch ur_robot_driver ur_control.launch.py ur_type:=ur5 robot_ip:=yyy.yyy.yyy.yyy use_mock_hardware:=true launch_rviz:=true initial_joint_controller:=forward_position_controller
