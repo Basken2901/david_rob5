@@ -266,12 +266,7 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
                     // ...
                     break;
                 case ControlMode::STARTUP:
-                    // ...
-                    break;
-                case ControlMode::OPERATION:
-                    
-                    {
-                        //std_msgs::msg::Float64MultiArray cmd;
+                    //std_msgs::msg::Float64MultiArray cmd;
                         //cmd.data = {0.3 * std::sin(2.0 * M_PI * 0.25 * t), 0.0, 0.0, 0.0, 0.0, 0.0};  // elbow only
                         //vel_pub_->publish(cmd);
                         //th.theta[0] = 0.3;
@@ -309,8 +304,56 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
                         //} else {
                         //    RCLCPP_WARN(get_logger(), "Target pose is out of reach");
                         //}
+                    // ...
+                    break;
+                case ControlMode::OPERATION:
+                    
+                {   
+                    bool fresh; // boolean deciding whether the joint positions are ready or not. if not fresh the vel_cmd is zero
+                    {
+                        std::lock_guard<std::mutex> lock(main_joint_positions_mutex_);
+                        fresh = joint_positions_received_ &&
+                                (this->now() - last_joint_update_).seconds() <= 0.1;
+                    }
+                        if (!fresh) {
+                        publishZeroVelocity();
                         break;
                     }
+                    auto q = state_manager.getJointPositions();
+                    TempJoint current{q};
+                    if (!target_initialized_)
+                    {
+                        target_pose_ = forward_kinematics.forward_kinematics(dh_, current); 
+                        target_initialized_ = true;
+                    }
+                    Pose previous = target_pose_;
+
+                    std::optional<TempJoint> ik = inverse_kinematics.inverse_kinematics(dh_, target_pose_, current);
+
+                    if (!ik)
+                    {
+                        target_pose_ = previous;  // unreachable, so undo the step
+                        publishZeroVelocity();
+                        RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 1000, "IK failed, target unreachable");
+                        break;
+                    }
+                    std::array<double, 6> q_target = ik->theta;
+                    auto vel = controller.p_controller(q, q_target); 
+                    std::array<double, 6> err{};
+                    for (std::size_t i = 0; i < 6; ++i)
+                        err[i] = q_target[i] - q[i];
+
+
+                    auto jacobian = singularity_prevention.jacobian_computation(dh_, current);
+                    singularity_info_ = singularity_prevention.compute_singularity_info(jacobian);
+                    auto vel_scaled = singularity_prevention.velocity_scaler(singularity_info_, vel); // check
+                    
+                    
+                    std_msgs::msg::Float64MultiArray cmd;
+                    cmd.data.assign(vel.begin(), vel.end());
+                    vel_pub_->publish(cmd);
+                    break;
+                }
                 case ControlMode::DEADMAN:
                     // ...
                     {
