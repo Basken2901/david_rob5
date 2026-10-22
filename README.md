@@ -94,6 +94,8 @@ ros2 service call /io_and_status_controller/set_io ur_msgs/srv/SetIO "{fun: 1, p
 
 ros2 control switch_controllers   --deactivate scaled_joint_trajectory_controller   --activate forward_velocity_controller
 
+ros2 launch david_launch dual_urdriver.launch.py   left_robot_ip:=192.168.57.101 right_robot_ip:=192.168.57.102 launch_rviz:=true
+
 ### Connection to the physcial robot (SSH connection)
 1. Connect to the TP-LINK_2.4GHz_FFD51D Wifi
 2. Change the IPV4 methods to manual
