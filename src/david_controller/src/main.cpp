@@ -13,12 +13,19 @@
 #include <atomic>
 #include <thread>
 #include <unistd.h>
+#include <cmath>
+#include <mutex>
 
 #include "rclcpp/rclcpp.hpp"  // all headers (those ending with .hpp) must be specififed in the package.xml file. 
 #include "geometry_msgs/msg/twist_stamped.hpp"
+#include "geometry_msgs/msg/pose_stamped.hpp"
 #include <std_msgs/msg/float64_multi_array.hpp>
 #include <sensor_msgs/msg/joint_state.hpp>
 
+#include "sensor_msgs/msg/joint_state.hpp"
+#include "std_msgs/msg/bool.hpp"
+#include "std_msgs/msg/float32.hpp"
+#include "std_msgs/msg/float64_multi_array.hpp"
 
 using namespace std::chrono_literals;
 
@@ -27,6 +34,7 @@ using namespace std::chrono_literals;
 #include "kinematics.h"
 #include "transformations.h"
 #include "controller.h"
+
 
 
 
@@ -89,6 +97,10 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         //timer_ = this->create_wall_timer(
         //    std::chrono::milliseconds(50), // 20 Hz
         //    std::bind(&ControlNode::vel_cmd_callback, this)); // 
+
+        //Subscribers
+
+
         start_time_ = this->now();
         start_control_loop();
         rclcpp::contexts::get_global_default_context()->add_pre_shutdown_callback(

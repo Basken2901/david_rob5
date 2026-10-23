@@ -28,6 +28,9 @@
     <!-- Where the Onshape body meshes live. ROS: inside david_launch. Isaac: pass a file:// path. -->
     <xacro:arg name="body_mesh_path" default="package://david_launch/meshes" />
     <xacro:arg name="use_mock_hardware" default="false" />
+    <!-- Per-arm override, e.g. only the right robot connected: left_use_mock_hardware:=true -->
+    <xacro:arg name="left_use_mock_hardware"  default="$(arg use_mock_hardware)" />
+    <xacro:arg name="right_use_mock_hardware" default="$(arg use_mock_hardware)" />
     <xacro:arg name="headless_mode"     default="false" />
 
     <!-- Ports the robots connect back to on this PC (must not overlap) -->
@@ -43,7 +46,7 @@
     <!-- MEASURE ON THE REAL ROBOT (radians). Rotation of each arm base about its own axis.
          Jog shoulder_pan to 0 on the pendant and turn this until RViz/Isaac matches. -->
     <xacro:arg name="left_base_yaw"  default="0.0" />
-    <xacro:arg name="right_base_yaw" default="0.0" />
+    <xacro:arg name="right_base_yaw" default="3.14159" />
     <!-- MEASURE: rotation of each gripper about the tool flange axis (radians).
          Put wrist_3 at 0 and turn this until the fingers match the real gripper. -->
     <xacro:arg name="left_gripper_yaw"  default="0.0" />
@@ -4807,7 +4810,7 @@
         script_filename="$(find ur_client_library)/resources/external_control.urscript"
         output_recipe_filename="$(find ur_robot_driver)/resources/rtde_output_recipe.txt"
         input_recipe_filename="$(find ur_robot_driver)/resources/rtde_input_recipe.txt"
-        use_mock_hardware="$(arg use_mock_hardware)"
+        use_mock_hardware="$(arg left_use_mock_hardware)"
         mock_sensor_commands="false"
         headless_mode="$(arg headless_mode)"
         reverse_port="$(arg left_reverse_port)"
@@ -4825,7 +4828,7 @@
         script_filename="$(find ur_client_library)/resources/external_control.urscript"
         output_recipe_filename="$(find ur_robot_driver)/resources/rtde_output_recipe.txt"
         input_recipe_filename="$(find ur_robot_driver)/resources/rtde_input_recipe.txt"
-        use_mock_hardware="$(arg use_mock_hardware)"
+        use_mock_hardware="$(arg right_use_mock_hardware)"
         mock_sensor_commands="false"
         headless_mode="$(arg headless_mode)"
         reverse_port="$(arg right_reverse_port)"

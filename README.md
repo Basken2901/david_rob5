@@ -54,6 +54,7 @@ ros2 launch david_launch dual_urdriver.launch.py left_use_mock_hardware:=true ri
 
 4. Second container (comming later)
 
+### To launch IsaacSim with steamVR and publishers
 
 This launches control and topics from the simulated UR robots.
 
@@ -100,6 +101,8 @@ ros2 service call /io_and_status_controller/set_io ur_msgs/srv/SetIO "{fun: 1, p
 ros2 service call /io_and_status_controller/set_io ur_msgs/srv/SetIO "{fun: 1, pin: 17, state: 0.0}"
 
 ros2 control switch_controllers   --deactivate scaled_joint_trajectory_controller   --activate forward_velocity_controller
+
+ros2 launch david_launch dual_urdriver.launch.py   left_robot_ip:=192.168.57.101 right_robot_ip:=192.168.57.102 launch_rviz:=true
 
 ### Connection to the physcial robot (SSH connection)
 1. Connect to the TP-LINK_2.4GHz_FFD51D Wifi

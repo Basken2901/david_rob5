@@ -1,0 +1,11 @@
+[package]
+version = "0.1.0"
+title = "David VR ROS Publisher"
+description = "Publish Isaac XR input to ROS 2"
+
+[dependencies]
+"omni.kit.xr.core" = {}
+"isaacsim.ros2.bridge" = {}
+
+[[python.module]]
+name = "vr_ros_publisher"
