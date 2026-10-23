@@ -1,0 +1,4 @@
+controller:
+  ros__parameters:
+    p_controller:
+      kp: 1.1

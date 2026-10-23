@@ -48,18 +48,70 @@ This launches the MoveIT planner in another Rviz window
 
 ### To launch IsaacSim with steamVR and publishers
 
-1. Launch steamVR through steam
-2. Connect vr headset to steamapp and link to host pc
-3. Get the correct root from David workspace root
-```
-realpath src/david_sim/exts
-```
-4. Run the command, replacing "/absolute/path/from/realpath" with the workspace path
-```
-cd ~/isaacsim
-XR_RUNTIME_JSON="$HOME/.steam/debian-installation/steamapps/common/SteamVR/steamxr_linux64.json" \
-./isaac-sim.xr.vr.sh \
-  --ext-folder "/absolute/path/from/realpath" \
-
-
 ros2 launch ur_robot_driver ur_control.launch.py ur_type:=ur5 robot_ip:=yyy.yyy.yyy.yyy use_mock_hardware:=true launch_rviz:=true initial_joint_controller:=forward_position_controller
+
+
+
+### To move the robot with keyboard (Temporary):
+1. First have to move it out of a singularity straight arm pose
+```
+ros2 topic pub --once /forward_position_controller/commands std_msgs/msg/Float64MultiArray "{data: [0.0, -1.57, 1.57, -1.57, -1.57, 0.0]}"
+```
+2. Then deactivate the UR_driver controller, that is blocking ours
+```
+ros2 control switch_controllers --activate forward_velocity_controller --deactivate forward_position_controller
+```
+3. Then run our controller
+```
+ros2 run david_controller controller
+```
+
+The commands are W and S to move back and forth on the y-axis.
+A and D for the x-axis.
+Z and X for the z-axis.
+
+
+
+### REAL ROBOT
+
+Noter fixer senere mathias....
+
+xhost +local:root
+
+docker compose -f docker_sim_compose.yml up -d
+
+docker exec -it david_docker_real bash
+
+ros2 launch ur_robot_driver ur_control.launch.py \
+  ur_type:=ur5e \
+  robot_ip:=192.168.57.101 \
+  launch_rviz:=true
+
+
+ros2 service call /io_and_status_controller/set_io ur_msgs/srv/SetIO "{fun: 1, pin: 16, state: 1.0}"
+ros2 service call /io_and_status_controller/set_io ur_msgs/srv/SetIO "{fun: 1, pin: 16, state: 0.0}"
+ros2 service call /io_and_status_controller/set_io ur_msgs/srv/SetIO "{fun: 1, pin: 17, state: 1.0}"
+ros2 service call /io_and_status_controller/set_io ur_msgs/srv/SetIO "{fun: 1, pin: 17, state: 0.0}"
+
+ros2 control switch_controllers   --deactivate scaled_joint_trajectory_controller   --activate forward_velocity_controller
+
+ros2 launch david_launch dual_urdriver.launch.py   left_robot_ip:=192.168.57.101 right_robot_ip:=192.168.57.102 launch_rviz:=true
+
+### Connection to the physcial robot (SSH connection)
+1. Connect to the TP-LINK_2.4GHz_FFD51D Wifi
+2. Change the IPV4 methods to manual
+
+When changed to manual update these addresses
+Address: 192.168.0.x (x means a value between 1 and 256. NOT 100, 101, 102 or 103!)
+Netmask: 255.255.255.0
+Gateway: 192.168.0.1
+DNS: 8.8.8.8
+
+3. SSH into the PC
+```
+ssh gr141@192.168.0.100
+```
+4. To logout
+```
+exit
+```

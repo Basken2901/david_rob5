@@ -25,6 +25,7 @@ services:
     environment:
       - DISPLAY=${DISPLAY}
       - QT_X11_NO_MITSHM=1
+      - LIBGL_ALWAYS_SOFTWARE=1
     networks:
       urnet:
         ipv4_address: 192.168.56.2

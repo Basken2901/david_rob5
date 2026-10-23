@@ -62,3 +62,40 @@ double PathPlanner::get_total_time() const {
     std::lock_guard<std::recursive_mutex> lock(planner_mutex_);
     return total_time;
 }
+
+
+ScalarPoint PathPlanner::evaluate_polynomial(const std::vector<double>& coefficient, double time) const{
+    ScalarPoint point;   // already zeroed by default members
+
+    for (size_t i = 0; i < coefficient.size(); ++i)
+        point.position += coefficient[i] * std::pow(time, i);
+
+    for (size_t i = 1; i < coefficient.size(); ++i)
+        point.velocity += i * coefficient[i] * std::pow(time, i - 1);
+
+    for (size_t i = 2; i < coefficient.size(); ++i)
+        point.acceleration += i * (i - 1) * coefficient[i] * std::pow(time, i - 2);
+
+    return point;
+}
+
+TrajectoryPoint PathPlanner::get_trajectory_point(double time) const {
+    std::lock_guard<std::recursive_mutex> lock(planner_mutex_);
+
+    ScalarPoint x = evaluate_polynomial(segments[0].coefficient, time);
+    ScalarPoint y = evaluate_polynomial(segments[1].coefficient, time);
+    ScalarPoint z = evaluate_polynomial(segments[2].coefficient, time);
+
+    TrajectoryPoint point;
+    point.position     = Eigen::Vector3d(x.position,     y.position,     z.position);
+    point.velocity     = Eigen::Vector3d(x.velocity,     y.velocity,     z.velocity);
+    point.acceleration = Eigen::Vector3d(x.acceleration, y.acceleration, z.acceleration);
+
+    // orientation via SLERP
+    double ratio = std::clamp(time / total_time, 0.0, 1.0);
+    Eigen::Quaterniond q_end = end_quat_;
+    if (start_quat_.dot(end_quat_) < 0.0) q_end.coeffs() *= -1.0;
+    point.orientation = start_quat_.slerp(ratio, q_end).normalized();
+
+    return point;
+}

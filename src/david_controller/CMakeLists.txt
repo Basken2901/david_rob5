@@ -19,11 +19,22 @@ find_package(sensor_msgs REQUIRED)
 
 include_directories(include)
 
+Install(PROGRAMS
+  scripts/UR5e_msg_translator.py
+  DESTINATION lib/${PROJECT_NAME}
+
+
+
+)
+
+
 add_executable(controller
     src/main.cpp
     src/path_planner.cpp
     src/state_manager.cpp
     src/transformations.cpp
+    src/kinematics.cpp
+    src/controller.cpp
 )
 
 target_include_directories(controller PUBLIC
@@ -38,8 +49,8 @@ ament_target_dependencies(controller
   rclcpp
   rclcpp_action
   std_msgs
-  geometry_msgs 
-  sensor_msgs
+  geometry_msgs
+  sensor_msgs 
 )
 
 install(TARGETS controller

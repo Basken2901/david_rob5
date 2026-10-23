@@ -26,7 +26,14 @@ enum class ControlMode {
     SAFETY = 0,
     STARTUP = 1,
     OPERATION = 2,
-    DEADMAN = 3
+    DEADMAN = 3,
+    TEST = 4
+};
+
+
+
+struct PGains {
+    double Kp = 0.251;
 };
 struct ArmState {
     //! Create ros timestamp
@@ -66,6 +73,20 @@ struct Stamped3DVector {
     void setTime(const rclcpp::Time& new_time) { timestamp = new_time; }
 };
 
+struct TrajectoryPoint {
+    Eigen::Vector3d position = Eigen::Vector3d::Zero();
+    Eigen::Quaterniond orientation = Eigen::Quaterniond::Identity();
+    Eigen::Vector3d velocity = Eigen::Vector3d::Zero();
+    Eigen::Vector3d acceleration = Eigen::Vector3d::Zero();
+};
+
+struct ScalarPoint {
+    double position = 0.0;
+    double velocity = 0.0;
+    double acceleration = 0.0;
+};
+
+class StateManager {
 struct JointState
 {
     std::array<std::string, UR5E_DOF> names = {
@@ -109,16 +130,9 @@ class StateManager {
         Stamped3DVector getGlobalVelocity();
         void setGlobalAcceleration(const Stamped3DVector& acceleration);
         Stamped3DVector getGlobalAcceleration();
-        void setJointStateLeft(const JointState& state);
-        JointState getJointStateLeft();
-        void setJointStateRight(const JointState& state);
-        JointState getJointStateRight();
-        void setVRControllerLeft(const VRState& state);
-        VRState getVRControllerLeft();
-        void setVRControllerRight(const VRState& state);
-        VRState getVRControllerRight();
-        void setVRHead(const VRState& state);
-        VRState getVRHead();
+        void setJointPositions(const sensor_msgs::msg::JointState& msg);
+        std::array<double, 6> getJointPositions();
+        
 
     private:
         ArmState arm_state_;
@@ -143,5 +157,12 @@ class StateManager {
         std::mutex vr_controller_right_mutex_;
         VRState vr_head_;
         std::mutex vr_head_mutex_;
+
+        std::mutex joint_positions_mutex_;
+        std::array<double, 6> joint_positions_{};
+
+        static constexpr std::array<const char*, 6> JOINT_NAMES = {
+            "shoulder_pan_joint", "shoulder_lift_joint", "elbow_joint",
+            "wrist_1_joint", "wrist_2_joint", "wrist_3_joint"};
 
 };
