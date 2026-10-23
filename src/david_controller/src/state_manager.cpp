@@ -8,6 +8,7 @@ void StateManager::set_arm_state(const ArmState& new_data) {
     arm_state_ = new_data;
 }
 
+
 ArmState StateManager::get_arm_state() {
     std::lock_guard<std::mutex> lock(arm_state_mutex_);
     return arm_state_;
@@ -91,57 +92,38 @@ void StateManager::setJointPositions(const sensor_msgs::msg::JointState& msg) {
 std::array<double, 6> StateManager::getJointPositions() {
             std::lock_guard<std::mutex> lock(joint_positions_mutex_);
             return joint_positions_;
-
-// Joint state management
-
-void StateManager::setJointStateLeft(const JointState& state) {
-    std::lock_guard<std::mutex> lock(joint_state_left_mutex_);
-    joint_state_left_ = state;
 }
 
-JointState StateManager::getJointStateLeft() {
-    std::lock_guard<std::mutex> lock(joint_state_left_mutex_);
-    return joint_state_left_;
+void StateManager::setLeftJointPositions(const sensor_msgs::msg::JointState& msg) {
+    std::lock_guard<std::mutex> lock(left_joint_positions_mutex_);
+    for (size_t i = 0; i < msg.name.size() && i < msg.position.size(); ++i) {
+        for (size_t j = 0; j < JOINT_NAMES.size(); ++j) {
+            if (msg.name[i] == JOINT_NAMES[j]) {
+                left_joint_positions_[j] = msg.position[i];
+                break;
+            }
+        }
+    }
 }
 
-void StateManager::setJointStateRight(const JointState& state) {
-    std::lock_guard<std::mutex> lock(joint_state_right_mutex_);
-    joint_state_right_ = state;
+std::array<double, 6> StateManager::getLeftJointPositions() {
+    std::lock_guard<std::mutex> lock(left_joint_positions_mutex_);
+    return left_joint_positions_;
 }
 
-JointState StateManager::getJointStateRight() {
-    std::lock_guard<std::mutex> lock(joint_state_right_mutex_);
-    return joint_state_right_;
+void StateManager::setRightJointPositions(const sensor_msgs::msg::JointState& msg) {
+    std::lock_guard<std::mutex> lock(right_joint_positions_mutex_);
+    for (size_t i = 0; i < msg.name.size() && i < msg.position.size(); ++i) {
+        for (size_t j = 0; j < JOINT_NAMES.size(); ++j) {
+            if (msg.name[i] == JOINT_NAMES[j]) {
+                right_joint_positions_[j] = msg.position[i];
+                break;
+            }
+        }
+    }
 }
 
-// VR state management
-
-void StateManager::setVRControllerLeft(const VRState& state){
-    std::lock_guard<std::mutex> lock(vr_controller_left_mutex_);
-    vr_controller_left_ = state;
-}
-
-VRState StateManager::getVRControllerLeft() {
-    std::lock_guard<std::mutex> lock(vr_controller_left_mutex_);
-    return vr_controller_left_;
-}
-
-void StateManager::setVRControllerRight(const VRState& state){
-    std::lock_guard<std::mutex> lock(vr_controller_right_mutex_);
-    vr_controller_right_ = state;
-}
-
-VRState StateManager::getVRControllerRight() {
-    std::lock_guard<std::mutex> lock(vr_controller_right_mutex_);
-    return vr_controller_right_;
-}
-
-void StateManager::setVRHead(const VRState& state){
-    std::lock_guard<std::mutex> lock(vr_head_mutex_);
-    vr_head_ = state;
-}
-
-VRState StateManager::getVRHead() {
-    std::lock_guard<std::mutex> lock(vr_head_mutex_);
-    return vr_head_;
+std::array<double, 6> StateManager::getRightJointPositions() {
+    std::lock_guard<std::mutex> lock(right_joint_positions_mutex_);
+    return right_joint_positions_;
 }

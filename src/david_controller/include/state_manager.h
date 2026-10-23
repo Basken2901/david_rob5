@@ -86,7 +86,6 @@ struct ScalarPoint {
     double acceleration = 0.0;
 };
 
-class StateManager {
 struct JointState
 {
     std::array<std::string, UR5E_DOF> names = {
@@ -120,6 +119,8 @@ class StateManager {
     public:
         void set_arm_state(const ArmState& new_data);
         ArmState get_arm_state();
+        void set_control_mode(const ControlMode& new_mode);
+        ControlMode get_control_mode();
         void setLocalPosition(const Stamped3DVector& position);
         Stamped3DVector getLocalPosition();
         void setGlobalPosition(const Stamped3DVector& position);
@@ -132,11 +133,18 @@ class StateManager {
         Stamped3DVector getGlobalAcceleration();
         void setJointPositions(const sensor_msgs::msg::JointState& msg);
         std::array<double, 6> getJointPositions();
+        void setLeftJointPositions(const sensor_msgs::msg::JointState& msg);
+        std::array<double, 6> getLeftJointPositions();
+        void setRightJointPositions(const sensor_msgs::msg::JointState& msg);
+        std::array<double, 6> getRightJointPositions();
         
 
     private:
         ArmState arm_state_;
         std::mutex arm_state_mutex_;
+        ControlMode control_mode_;
+        std::mutex control_mode_mutex_;
+
         Stamped3DVector arm_position_;
         std::mutex arm_position_mutex_;
         Stamped3DVector arm_global_position_;
@@ -147,19 +155,14 @@ class StateManager {
         std::mutex arm_global_velocity_mutex_;
         Stamped3DVector arm_global_acceleration_;
         std::mutex arm_global_acceleration_mutex_;
-        JointState joint_state_left_;
-        std::mutex joint_state_left_mutex_;
-        JointState joint_state_right_;
-        std::mutex joint_state_right_mutex_;
-        VRState vr_controller_left_;
-        std::mutex vr_controller_left_mutex_;
-        VRState vr_controller_right_;
-        std::mutex vr_controller_right_mutex_;
-        VRState vr_head_;
-        std::mutex vr_head_mutex_;
 
         std::mutex joint_positions_mutex_;
         std::array<double, 6> joint_positions_{};
+
+        std::mutex left_joint_positions_mutex_;
+        std::array<double, 6> left_joint_positions_{};
+        std::mutex right_joint_positions_mutex_;
+        std::array<double, 6> right_joint_positions_{};
 
         static constexpr std::array<const char*, 6> JOINT_NAMES = {
             "shoulder_pan_joint", "shoulder_lift_joint", "elbow_joint",

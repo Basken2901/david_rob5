@@ -8,8 +8,10 @@
 #include <cstdio>
 
 #include <array>
+#include <algorithm>
 #include <mutex>
 #include <string>
+#include <string_view>
 #include <atomic>
 #include <thread>
 #include <unistd.h>
@@ -82,12 +84,6 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         vel_pub_ = create_publisher<std_msgs::msg::Float64MultiArray>(
         "/forward_velocity_controller/commands", 10);
 
-        joint_sub_ = this->create_subscription<sensor_msgs::msg::JointState>(
-        "/joint_states", 10,
-        [this](const sensor_msgs::msg::JointState::SharedPtr msg)
-        {
-            joint_callback(*msg);
-        });
 
         //Timer for publishing cmd_vel messages
         //timer_ = this->create_wall_timer(
@@ -95,6 +91,13 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         //    std::bind(&ControlNode::vel_cmd_callback, this)); // 
 
         //Subscribers
+        joint_sub_ = this->create_subscription<sensor_msgs::msg::JointState>(
+        "/joint_states", 10,
+        [this](const sensor_msgs::msg::JointState::SharedPtr msg)
+        {
+            joint_callback(*msg);
+        });
+
 
 
         start_time_ = this->now();
@@ -156,6 +159,47 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         }
         void joint_callback(const sensor_msgs::msg::JointState& msg)
         {
+            sensor_msgs::msg::JointState left_msg;
+            sensor_msgs::msg::JointState right_msg;
+            left_msg.header = msg.header;
+            right_msg.header = msg.header;
+
+            constexpr std::string_view LEFT_PREFIX = "left_";
+            constexpr std::string_view RIGHT_PREFIX = "right_";
+
+            const std::size_t value_count = std::min(msg.name.size(), msg.position.size());
+            for (std::size_t i = 0; i < value_count; ++i) {
+                const std::string& name = msg.name[i];
+                sensor_msgs::msg::JointState* arm_msg = nullptr;
+                std::string_view prefix;
+
+                if (name.starts_with(LEFT_PREFIX)) {
+                    arm_msg = &left_msg;
+                    prefix = LEFT_PREFIX;
+                } else if (name.starts_with(RIGHT_PREFIX)) {
+                    arm_msg = &right_msg;
+                    prefix = RIGHT_PREFIX;
+                } else {
+                    continue;
+                }
+
+                arm_msg->name.emplace_back(name.substr(prefix.size()));
+                arm_msg->position.push_back(msg.position[i]);
+            }
+
+            constexpr std::size_t EXPECTED_JOINT_COUNT = 6;
+            if (left_msg.name.size() != EXPECTED_JOINT_COUNT ||
+                right_msg.name.size() != EXPECTED_JOINT_COUNT) {
+                RCLCPP_WARN_THROTTLE(
+                    get_logger(), *get_clock(), 2000,
+                    "Expected 6 joints per arm, received left=%zu right=%zu",
+                    left_msg.name.size(), right_msg.name.size());
+                joint_positions_received_ = false;
+                return;
+            }
+
+            state_manager.setLeftJointPositions(left_msg);
+            state_manager.setRightJointPositions(right_msg);
             state_manager.setJointPositions(msg);
             joint_positions_received_ = true;
             last_joint_update_ = this->now();
