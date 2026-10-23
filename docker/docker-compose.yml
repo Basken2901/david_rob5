@@ -1,12 +1,12 @@
 services:
-  ursim:
+  ursim_left:
     image: universalrobots/ursim_e-series
     environment:
       - ROBOT_MODEL=UR5
     ports:
-      - "6080:6080"   
+      - "6080:6080"                 # pendant: http://localhost:6080/vnc.html
     volumes:
-      - ./ursim/programs:/ursim/programs
+      - ./ursim_left/programs:/ursim/programs
       - ./ursim/urcaps:/urcaps
     networks:
       urnet:
@@ -14,11 +14,29 @@ services:
     cap_add:
       - NET_ADMIN
 
+  ursim_right:
+    image: universalrobots/ursim_e-series
+    environment:
+      - ROBOT_MODEL=UR5
+    ports:
+      - "6081:6080"                 # pendant: http://localhost:6081/vnc.html
+    volumes:
+      - ./ursim_right/programs:/ursim/programs
+      - ./ursim/urcaps:/urcaps
+    networks:
+      urnet:
+        ipv4_address: 192.168.56.102
+    cap_add:
+      - NET_ADMIN
+
   ros2:
     build: .
+    image: docker-ros2
     depends_on:
-      - ursim
+      - ursim_left
+      - ursim_right
     container_name: david_docker
+    network_mode: host              # visible to Isaac on the LAN; reaches URSims via 192.168.56.1
     volumes:
       - ..:/ros2_ws
       - /tmp/.X11-unix:/tmp/.X11-unix
@@ -26,15 +44,19 @@ services:
       - DISPLAY=${DISPLAY}
       - QT_X11_NO_MITSHM=1
       - LIBGL_ALWAYS_SOFTWARE=1
-    networks:
-      urnet:
-        ipv4_address: 192.168.56.2
+      - ROS_DOMAIN_ID=0             # Isaac must use the same
+    cap_add:
+      - SYS_NICE                    # allow real-time scheduling for controller_manager
+    ulimits:
+      rtprio: 99
+      memlock: -1
     stdin_open: true
     tty: true
-  
+
 networks:
   urnet:
     driver: bridge
     ipam:
       config:
         - subnet: 192.168.56.0/24
+          gateway: 192.168.56.1     # this is the host = where the driver listens

@@ -72,7 +72,11 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         cmd_vel_pub_ = this->create_publisher<geometry_msgs::msg::TwistStamped>( 
         "/servo_node/delta_twist_cmds", 10); //double check the topic name
         vel_pub_ = create_publisher<std_msgs::msg::Float64MultiArray>(
-        "/forward_velocity_controller/commands", 10);
+        "/forward_velocity_controller/commands", 10); // Outdated;
+        //left_vel_pub_ = create_publisher<std_msgs::msg::Float64MultiArray>(
+        //    "/left_forward_velocity_controller/commands", 10);
+        //right_vel_pub_ = create_publisher<std_msgs::msg::Float64MultiArray>(
+        //    "/right_forward_velocity_controller/commands", 10);
 
         joint_sub_ = this->create_subscription<sensor_msgs::msg::JointState>(
         "/joint_states", 10,
@@ -114,7 +118,9 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
 
         //-----------Publishers and subcribers-----------
         rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr cmd_vel_pub_;
-        rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr vel_pub_;
+        rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr vel_pub_; //Outdated
+        //rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr left_vel_pub_;
+        //rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr right_vel_pub_;
         rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr joint_sub_;
 
         //-----------Timers---------------------
