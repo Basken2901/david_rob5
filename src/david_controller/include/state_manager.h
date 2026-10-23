@@ -2,12 +2,17 @@
 
 #include <chrono>
 #include <vector>
+#include <string>
 #include <eigen3/Eigen/Dense>
 #include <eigen3/Eigen/Core>
 #include <eigen3/Eigen/Geometry>
 #include <eigen3/Eigen/StdVector>
 #include "rclcpp/rclcpp.hpp"
 #include <sensor_msgs/msg/joint_state.hpp>
+#include "geometry_msgs/msg/pose_stamped.hpp"
+#include <mutex>
+
+constexpr std::size_t UR5E_DOF = 6;
 
 enum class TrajectoryMode {
     UNINITIALIZED = -1,
@@ -15,6 +20,7 @@ enum class TrajectoryMode {
     ACTIVE = 1,
     COMPLETED = 2
 };
+
 
 enum class ControlMode {
     SAFETY = 0,
@@ -29,7 +35,6 @@ enum class ControlMode {
 struct PGains {
     double Kp = 0.251;
 };
-
 struct ArmState {
     //! Create ros timestamp
     rclcpp::Time timestamp = rclcpp::Time(0, 0);
@@ -82,11 +87,39 @@ struct ScalarPoint {
 };
 
 class StateManager {
+struct JointState
+{
+    std::array<std::string, UR5E_DOF> names = {
+        "shoulder_pan_joint",
+        "shoulder_lift_joint",
+        "elbow_joint",
+        "wrist_1_joint",
+        "wrist_2_joint",
+        "wrist_3_joint"
+    };
+
+    std::array<double, UR5E_DOF> position{};
+    std::array<double, UR5E_DOF> velocity{};
+    std::array<double, UR5E_DOF> effort{};
+};
+
+struct VRState
+{
+    geometry_msgs::msg::PoseStamped left_pose;
+    geometry_msgs::msg::PoseStamped right_pose;
+    geometry_msgs::msg::PoseStamped head_pose;
+
+    bool left_clutch = false;
+    bool right_clutch = false;
+
+    float left_gripper = 0.0f;
+    float right_gripper = 0.0f;
+};
+
+class StateManager {    
     public:
         void set_arm_state(const ArmState& new_data);
         ArmState get_arm_state();
-        void set_control_mode(const ControlMode& mode);
-        ControlMode get_control_mode();
         void setLocalPosition(const Stamped3DVector& position);
         Stamped3DVector getLocalPosition();
         void setGlobalPosition(const Stamped3DVector& position);
@@ -104,9 +137,6 @@ class StateManager {
     private:
         ArmState arm_state_;
         std::mutex arm_state_mutex_;
-        ControlMode control_mode_;
-        std::mutex control_mode_mutex_;
- 
         Stamped3DVector arm_position_;
         std::mutex arm_position_mutex_;
         Stamped3DVector arm_global_position_;
@@ -117,6 +147,16 @@ class StateManager {
         std::mutex arm_global_velocity_mutex_;
         Stamped3DVector arm_global_acceleration_;
         std::mutex arm_global_acceleration_mutex_;
+        JointState joint_state_left_;
+        std::mutex joint_state_left_mutex_;
+        JointState joint_state_right_;
+        std::mutex joint_state_right_mutex_;
+        VRState vr_controller_left_;
+        std::mutex vr_controller_left_mutex_;
+        VRState vr_controller_right_;
+        std::mutex vr_controller_right_mutex_;
+        VRState vr_head_;
+        std::mutex vr_head_mutex_;
 
         std::mutex joint_positions_mutex_;
         std::array<double, 6> joint_positions_{};
