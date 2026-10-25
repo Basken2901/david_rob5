@@ -6,6 +6,7 @@
 #include <termios.h>
 #include <fcntl.h>
 #include <cstdio>
+#include <optional> 
 
 #include <array>
 #include <algorithm>
@@ -18,7 +19,10 @@
 #include <cmath>
 #include <mutex>
 
-#include "rclcpp/rclcpp.hpp"  // all headers (those ending with .hpp) must be specififed in the package.xml file. 
+#include "rclcpp/rclcpp.hpp" 
+#include <tf2_ros/buffer.h>
+#include <tf2_ros/transform_listener.h>
+#include <tf2_eigen/tf2_eigen.hpp> 
 #include "geometry_msgs/msg/twist_stamped.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include <std_msgs/msg/float64_multi_array.hpp>
@@ -37,6 +41,18 @@ using namespace std::chrono_literals;
 #include "transformations.h"
 #include "controller.h"
 
+
+struct Arm {
+    std::string name;          // "left"
+    std::string base_frame;    // "left_base" (UR base, not base_link)
+    rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr vel_pub;
+
+    Eigen::Matrix4d T_world_base = Eigen::Matrix4d::Identity();
+    Eigen::Matrix4d T_base_world = Eigen::Matrix4d::Identity();
+    bool base_known = false;
+
+    std::optional<Eigen::Matrix4d> target_world;   
+};
 
 
 
@@ -79,15 +95,21 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         //StateManagers
 
         //Publishers
-        cmd_vel_pub_ = this->create_publisher<geometry_msgs::msg::TwistStamped>( 
-        "/servo_node/delta_twist_cmds", 10); //double check the topic name
-        vel_pub_ = create_publisher<std_msgs::msg::Float64MultiArray>(
-        "/forward_velocity_controller/commands", 10); // Outdated;
-        //left_vel_pub_ = create_publisher<std_msgs::msg::Float64MultiArray>(
-        //    "/left_forward_velocity_controller/commands", 10);
-        //right_vel_pub_ = create_publisher<std_msgs::msg::Float64MultiArray>(
-        //    "/right_forward_velocity_controller/commands", 10);
+        //cmd_vel_pub_ = this->create_publisher<geometry_msgs::msg::TwistStamped>( 
+        //"/servo_node/delta_twist_cmds", 10); //double check the topic name
+        //vel_pub_ = create_publisher<std_msgs::msg::Float64MultiArray>(
+        //"/forward_velocity_controller/commands", 10); // Outdated;
+        left_vel_pub_ = create_publisher<std_msgs::msg::Float64MultiArray>(
+            "/left_forward_velocity_controller/commands", 10);
+        right_vel_pub_ = create_publisher<std_msgs::msg::Float64MultiArray>(
+            "/right_forward_velocity_controller/commands", 10);
 
+        tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
+        tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+
+        left_arm_.name = "left";
+        left_arm_.base_frame = "left_base";
+        left_arm_.vel_pub = left_vel_pub_;
 
         //Timer for publishing cmd_vel messages
         //timer_ = this->create_wall_timer(
@@ -123,6 +145,8 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         Controller controller;
         SingularityPrevention singularity_prevention; // new
 
+        Arm left_arm_;
+
         //-----------Variables-----------------
         PGains p_gains;
         DHParam dh_;
@@ -132,11 +156,13 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         double scaling_factor = 1.0; // new
 
         //-----------Publishers and subcribers-----------
-        rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr cmd_vel_pub_;
-        rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr vel_pub_; //Outdated
-        //rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr left_vel_pub_;
-        //rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr right_vel_pub_;
+        //rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr cmd_vel_pub_;
+        //rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr vel_pub_; //Outdated
+        rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr left_vel_pub_;
+        rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr right_vel_pub_;
         rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr joint_sub_;
+        std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
+        std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
         //-----------Timers---------------------
         rclcpp::TimerBase::SharedPtr timer_;
@@ -157,12 +183,12 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         static constexpr double STEP = 0.005;
 
 
-        void vel_cmd_callback(geometry_msgs::msg::TwistStamped cmd_vel) // as of now, this function creates twist.stamped messages containing a point in time, frame-id, and a linear velocity in the x direction. The message is then published to the topic "/servo_node/delta_twist_cmds"
-        {// creates blank twist stamped variable named cmd_vel
-            cmd_vel.header.stamp = this->get_clock()->now(); //cmd_vel message gets the current time from this node's clock and assigns it to the header.stamp variable of the cmd_vel message. T.
-            cmd_vel.header.frame_id = "base_link"; // cmd_vel message gets the frame_id set to "base_link" 
-            cmd_vel_pub_->publish(cmd_vel); //publishes the message to the topic
-        }
+        //void vel_cmd_callback(geometry_msgs::msg::TwistStamped cmd_vel) // as of now, this function creates twist.stamped messages containing a point in time, frame-id, and a linear velocity in the x direction. The message is then published to the topic "/servo_node/delta_twist_cmds"
+        //{// creates blank twist stamped variable named cmd_vel
+        //    cmd_vel.header.stamp = this->get_clock()->now(); //cmd_vel message gets the current time from this node's clock and assigns it to the header.stamp variable of the cmd_vel message. T.
+        //    cmd_vel.header.frame_id = "base_link"; // cmd_vel message gets the frame_id set to "base_link" 
+        //    cmd_vel_pub_->publish(cmd_vel); //publishes the message to the topic
+        //}
         void joint_callback(const sensor_msgs::msg::JointState& msg)
         {
             sensor_msgs::msg::JointState left_msg;
@@ -211,11 +237,33 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
             last_joint_update_ = this->now();
 
         }
-        void publishZeroVelocity()
+        bool lookupBase(Arm& arm)
+        {
+            if (arm.base_known) return true;
+            try {
+                auto tf = tf_buffer_->lookupTransform("world", arm.base_frame, tf2::TimePointZero);
+                arm.T_world_base = tf2::transformToEigen(tf).matrix();
+                arm.T_base_world = arm.T_world_base.inverse();
+                arm.base_known = true;
+            } catch (const tf2::TransformException& e) {
+                RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 1000, "%s: waiting for base TF: %s",
+                                     arm.name.c_str(), e.what());
+            }
+            return arm.base_known;
+        }
+        void publishZero(Arm& arm)
         {
             std_msgs::msg::Float64MultiArray cmd;
             cmd.data.assign(6, 0.0);
-            vel_pub_->publish(cmd);
+            arm.vel_pub->publish(cmd);
+        }
+
+        void publishZeroVelocity() //!!! FIX
+        {
+            std_msgs::msg::Float64MultiArray cmd;
+            cmd.data.assign(6, 0.0);
+            left_vel_pub_->publish(cmd);
+            right_vel_pub_->publish(cmd);
         }
         static std::string fmt(const std::array<double, 6>& a) //Help to see what we publish
         {
@@ -223,6 +271,29 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
             std::snprintf(buf, sizeof(buf), "[%7.3f %7.3f %7.3f %7.3f %7.3f %7.3f]",
                           a[0], a[1], a[2], a[3], a[4], a[5]);
             return buf;
+        }
+        bool trackWorldTarget(Arm& arm, const TempJoint& q)
+        {
+            if (!arm.target_world) { publishZero(arm); return true; }
+        
+            const Eigen::Matrix4d target_base = arm.T_base_world * *arm.target_world;
+            auto ik = inverse_kinematics.inverse_kinematics(dh_, target_base, q);
+            if (!ik) {
+                publishZero(arm);
+                RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 1000, "%s: IK failed, target unreachable",
+                                     arm.name.c_str());
+                return false;
+            }
+        
+            auto vel = controller.p_controller(q.theta, ik->theta);
+            auto J = singularity_prevention.jacobian_computation(dh_, q);
+            singularity_info_ = singularity_prevention.compute_singularity_info(J);
+            auto vel_scaled = singularity_prevention.velocity_scaler(singularity_info_, vel);
+        
+            std_msgs::msg::Float64MultiArray cmd;
+            cmd.data.assign(vel_scaled.begin(), vel_scaled.end());
+            arm.vel_pub->publish(cmd);
+            return true;
         }
         //------------------------Trajectory functions------------------------------------------
         void activate_trajectory(float trajectory_duration){
@@ -283,6 +354,19 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
             if (keyboard_thread.joinable())
                 keyboard_thread.join();
         }
+        void keyboardJog(Arm& arm, const TempJoint& q)
+        {
+            if (!arm.target_world)   // start from where the tool is now
+                arm.target_world = arm.T_world_base * forward_kinematics.forward_kinematics_matrix(dh_, q);
+        
+            Eigen::Matrix4d& T = *arm.target_world;
+            if (key_up)    T(1, 3) += STEP;
+            if (key_down)  T(1, 3) -= STEP;
+            if (key_left)  T(0, 3) += STEP;
+            if (key_right) T(0, 3) -= STEP;
+            if (key_x)     T(2, 3) += STEP;
+            if (key_z)     T(2, 3) -= STEP;
+        }
         //------------------------------------Control loop----------------------------
 
         void start_control_loop()
@@ -311,17 +395,9 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
             const double time = (this->now() - start_time_).seconds();
             geometry_msgs::msg::TwistStamped msg;
             Pose end_point;
-            TempJoint tempth;
-
+            TempJoint tempth;         
             
-            //target.x = -0.5;
-            //target.y = -0.2;
-            //target.z =  0.4;
-            //target.roll  = M_PI;   // tool pointing straight down
-            //target.pitch = 0.0;
-            //target.yaw   = 0.0;
 
-            //std::optional<TempJoint> result = inverse_kinematics.inverse_kinematics(dh_, target, joints_);
             switch (state_manager.get_control_mode())
             {
                 case ControlMode::SAFETY:
@@ -413,7 +489,7 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
                     
                     std_msgs::msg::Float64MultiArray cmd;
                     cmd.data.assign(vel.begin(), vel.end());
-                    vel_pub_->publish(cmd);
+                    //vel_pub_->publish(cmd);
                     break;
                 }
                 case ControlMode::DEADMAN:
@@ -424,65 +500,24 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
                     }
                 case ControlMode::TEST:
                 {
-                    bool fresh; // boolean deciding whether the joint positions are ready or not. if not fresh the vel_cmd is zero
+                    bool fresh;
                     {
                         std::lock_guard<std::mutex> lock(main_joint_positions_mutex_);
                         fresh = joint_positions_received_ &&
                                 (this->now() - last_joint_update_).seconds() <= 0.1;
-                    }   // lock released here
-                    if (!fresh) {
-                        publishZeroVelocity();
-                        break;
                     }
-                    if (!keyboard_running)
-                        start_keyboard_control();
-
-                    auto q = state_manager.getJointPositions();
-                    TempJoint current{q};
-                    if (!target_initialized_)
-                    {
-                        target_pose_ = forward_kinematics.forward_kinematics(dh_, current); 
-                        target_initialized_ = true;
-                    }
-                    Pose previous = target_pose_;
-                    
-
-                    if (key_up)    target_pose_.y += STEP;
-                    if (key_down)  target_pose_.y -= STEP;
-                    if (key_left)  target_pose_.x += STEP;
-                    if (key_right) target_pose_.x -= STEP;
-                    if (key_x)     target_pose_.z += STEP;
-                    if (key_z)     target_pose_.z -= STEP;
-
-
-                    std::optional<TempJoint> ik = inverse_kinematics.inverse_kinematics(dh_, target_pose_, current);
-
-                    if (!ik)
-                    {
-                        target_pose_ = previous;  // unreachable, so undo the step
-                        publishZeroVelocity();
-                        RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 1000, "IK failed, target unreachable");
-                        break;
-                    }
-                    std::array<double, 6> q_target = ik->theta;
-                    auto vel = controller.p_controller(q, q_target);
-                    bool any_key = key_up || key_down || key_left || key_right || key_z || key_x;
-                    std::array<double, 6> err{};
-                    for (std::size_t i = 0; i < 6; ++i)
-                        err[i] = q_target[i] - q[i];
-
-                    
-                    // Taking the velocity command from the controller and scaling it based on the singularity information. 
-                    auto jacobian = singularity_prevention.jacobian_computation(dh_, current);
-                    singularity_info_ = singularity_prevention.compute_singularity_info(jacobian);
-                    auto vel_scaled = singularity_prevention.velocity_scaler(singularity_info_, vel); // check
-                    
-                    
-                    std_msgs::msg::Float64MultiArray cmd;
-                    cmd.data.assign(vel.begin(), vel.end());
-                    vel_pub_->publish(cmd);
-                    // RCLCPP_INFO(get_logger(),"Singularity info: velocity scaling factor: %.3f,  sigma_min : %.3f", singularity_prevention.scaling_factor, singularity_info_.sigma_min);
-                    
+                    if (!fresh || !lookupBase(left_arm_)) { publishZero(left_arm_); break; }
+                
+                    TempJoint left_q{state_manager.getLeftJointPositions()};
+                
+                    // --- TEMPORARY target source ---
+                    if (!keyboard_running) start_keyboard_control();
+                    const auto previous = left_arm_.target_world;
+                    keyboardJog(left_arm_, left_q);
+                    // -------------------------------
+                
+                    if (!trackWorldTarget(left_arm_, left_q))
+                        left_arm_.target_world = previous;   // keyboard only: undo the step that went out of reach
                     break;
                 }
             }
@@ -491,15 +526,6 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
 
         
 };
-
-//TrajectoryInitState init_state = {
-//        .position = {0.0, 0.0, 0.0},
-//        .position_target_prev = {0.0, 0.0, 0.0},
-//        .orientation = {1.0, 0.0, 0.0, 0.0},cd
-//        .velocity = {0.0, 0.0, 0.0},
-//        .acceleration = {0.0, 0.0, 0.0},
-//        .yaw = 0.0
-//    };
 
 
 

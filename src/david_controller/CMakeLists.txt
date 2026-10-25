@@ -16,6 +16,8 @@ find_package(OpenGL REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(tf2_eigen REQUIRED)
 
 include_directories(include)
 
@@ -43,6 +45,8 @@ target_include_directories(controller PUBLIC
 
 target_link_libraries(controller 
   OpenGL::GL 
+  tf2_ros::tf2_ros
+  tf2_eigen::tf2_eigen
 )
 
 ament_target_dependencies(controller
@@ -51,6 +55,8 @@ ament_target_dependencies(controller
   std_msgs
   geometry_msgs
   sensor_msgs 
+  tf2_ros
+  tf2_eigen
 )
 
 install(TARGETS controller
