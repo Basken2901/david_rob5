@@ -21,6 +21,7 @@
 #include "rclcpp/rclcpp.hpp"  // all headers (those ending with .hpp) must be specififed in the package.xml file. 
 #include "geometry_msgs/msg/twist_stamped.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
+#include "interface/msg/vr_input.hpp"
 #include <std_msgs/msg/float64_multi_array.hpp>
 #include <sensor_msgs/msg/joint_state.hpp>
 
@@ -98,6 +99,13 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
             joint_callback(*msg);
         });
 
+        vr_sub_ = this->create_subscription<interface::msg::VRInput>(
+        "/vr/input", 10,
+        [this](const interface::msg::VRInput::SharedPtr msg)
+        {
+            vr_callback(*msg);
+        });
+
 
 
         start_time_ = this->now();
@@ -131,6 +139,7 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr cmd_vel_pub_;
         rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr vel_pub_;
         rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr joint_sub_;
+        rclcpp::Subscription<interface::msg::VRInput>::SharedPtr vr_sub_;
 
         //-----------Timers---------------------
         rclcpp::TimerBase::SharedPtr timer_;
@@ -204,6 +213,30 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
             joint_positions_received_ = true;
             last_joint_update_ = this->now();
 
+        }
+
+        void vr_callback(const interface::msg::VRInput& msg)
+        {
+            if (msg.left.pose_available) {
+                geometry_msgs::msg::PoseStamped left_target;
+                left_target.header = msg.header;
+                left_target.pose = msg.left.pose;
+                state_manager.setLeftTarget(left_target);
+            }
+
+            if (msg.right.pose_available) {
+                geometry_msgs::msg::PoseStamped right_target;
+                right_target.header = msg.header;
+                right_target.pose = msg.right.pose;
+                state_manager.setRightTarget(right_target);
+            }
+
+            if (msg.head.pose_available) {
+                geometry_msgs::msg::PoseStamped vr_head_state;
+                vr_head_state.header = msg.header;
+                vr_head_state.pose = msg.head.pose;
+                state_manager.setVRHeadState(vr_head_state);
+            }
         }
         void publishZeroVelocity()
         {

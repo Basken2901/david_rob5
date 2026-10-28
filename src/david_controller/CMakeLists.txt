@@ -16,6 +16,7 @@ find_package(OpenGL REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(interface REQUIRED)
 
 include_directories(include)
 
@@ -51,6 +52,7 @@ ament_target_dependencies(controller
   std_msgs
   geometry_msgs
   sensor_msgs 
+  interface
 )
 
 install(TARGETS controller

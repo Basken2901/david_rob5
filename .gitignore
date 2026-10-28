@@ -10,6 +10,8 @@ install/
 # VSCode / JetBrains
 .vscode/
 .idea/
+.codex
+.agents
 
 # Python cache
 __pycache__/
@@ -19,3 +21,6 @@ __pycache__/
 *.swp
 *.swo
 *~
+
+# Agent files
+AGENTS.md

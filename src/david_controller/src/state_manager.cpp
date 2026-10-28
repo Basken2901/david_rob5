@@ -127,3 +127,35 @@ std::array<double, 6> StateManager::getRightJointPositions() {
     std::lock_guard<std::mutex> lock(right_joint_positions_mutex_);
     return right_joint_positions_;
 }
+
+//VR state management
+
+void StateManager::setLeftTarget(const geometry_msgs::msg::PoseStamped& target) {
+    std::lock_guard<std::mutex> lock(left_target_mutex_);
+    left_target_ = target;
+}
+
+geometry_msgs::msg::PoseStamped StateManager::getLeftTarget() {
+    std::lock_guard<std::mutex> lock(left_target_mutex_);
+    return left_target_;
+}
+
+void StateManager::setRightTarget(const geometry_msgs::msg::PoseStamped& target) {
+    std::lock_guard<std::mutex> lock(right_target_mutex_);
+    right_target_ = target;
+}
+
+geometry_msgs::msg::PoseStamped StateManager::getRightTarget() {
+    std::lock_guard<std::mutex> lock(right_target_mutex_);
+    return right_target_;
+}
+
+void StateManager::setVRHeadState(const geometry_msgs::msg::PoseStamped& head_state) {
+    std::lock_guard<std::mutex> lock(vr_head_state_mutex_);
+    vr_head_state_ = head_state;
+}
+
+geometry_msgs::msg::PoseStamped StateManager::getVRHeadState() {
+    std::lock_guard<std::mutex> lock(vr_head_state_mutex_);
+    return vr_head_state_;
+}
