@@ -43,7 +43,7 @@ using namespace std::chrono_literals;
 
 
 struct Arm {
-    std::string name;          // "left"
+    std::string name;          // "left" or "right"
     std::string base_frame;    // "left_base" (UR base, not base_link)
     rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr vel_pub;
 
@@ -54,7 +54,10 @@ struct Arm {
     std::optional<Eigen::Matrix4d> target_world;   
 };
 
-
+struct JogKeys {
+    std::atomic<bool> up{false}, down{false}, left{false}, right{false}, z_up{false}, z_down{false};
+    void clear() { up = down = left = right = z_up = z_down = false; }
+};
 
 
 class ControlNode : public rclcpp::Node{ //our control_node is derived from the "rclcpp::Node" class that is the base class for all ROS2 nodes.
@@ -95,10 +98,6 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         //StateManagers
 
         //Publishers
-        //cmd_vel_pub_ = this->create_publisher<geometry_msgs::msg::TwistStamped>( 
-        //"/servo_node/delta_twist_cmds", 10); //double check the topic name
-        //vel_pub_ = create_publisher<std_msgs::msg::Float64MultiArray>(
-        //"/forward_velocity_controller/commands", 10); // Outdated;
         left_vel_pub_ = create_publisher<std_msgs::msg::Float64MultiArray>(
             "/left_forward_velocity_controller/commands", 10);
         right_vel_pub_ = create_publisher<std_msgs::msg::Float64MultiArray>(
@@ -111,10 +110,9 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         left_arm_.base_frame = "left_base";
         left_arm_.vel_pub = left_vel_pub_;
 
-        //Timer for publishing cmd_vel messages
-        //timer_ = this->create_wall_timer(
-        //    std::chrono::milliseconds(50), // 20 Hz
-        //    std::bind(&ControlNode::vel_cmd_callback, this)); // 
+        right_arm_.name = "right";
+        right_arm_.base_frame = "right_base";
+        right_arm_.vel_pub = right_vel_pub_;
 
         //Subscribers
         joint_sub_ = this->create_subscription<sensor_msgs::msg::JointState>(
@@ -146,6 +144,7 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         SingularityPrevention singularity_prevention; // new
 
         Arm left_arm_;
+        Arm right_arm_;
 
         //-----------Variables-----------------
         PGains p_gains;
@@ -173,8 +172,8 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
 
         //------Thread safety for when running the keyboard command-----------
         std::thread keyboard_thread;
-        std::atomic<bool> key_up{false}, key_down{false}, key_left{false},
-                  key_right{false}, key_z{false}, key_x{false};
+        JogKeys left_keys_;
+        JogKeys right_keys_;
         std::atomic<bool> keyboard_running{false};
         std::mutex main_joint_positions_mutex_;
         std::atomic<bool> joint_positions_received_{false}; //To wait until joint angles arrive
@@ -183,12 +182,7 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         static constexpr double STEP = 0.005;
 
 
-        //void vel_cmd_callback(geometry_msgs::msg::TwistStamped cmd_vel) // as of now, this function creates twist.stamped messages containing a point in time, frame-id, and a linear velocity in the x direction. The message is then published to the topic "/servo_node/delta_twist_cmds"
-        //{// creates blank twist stamped variable named cmd_vel
-        //    cmd_vel.header.stamp = this->get_clock()->now(); //cmd_vel message gets the current time from this node's clock and assigns it to the header.stamp variable of the cmd_vel message. T.
-        //    cmd_vel.header.frame_id = "base_link"; // cmd_vel message gets the frame_id set to "base_link" 
-        //    cmd_vel_pub_->publish(cmd_vel); //publishes the message to the topic
-        //}
+        //--------------------CallBacks---------------
         void joint_callback(const sensor_msgs::msg::JointState& msg)
         {
             sensor_msgs::msg::JointState left_msg;
@@ -327,18 +321,27 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
                 
                 while (keyboard_running)
                 {
-                    key_up = key_down = key_left = key_right = key_z = key_x = false;
+                    left_keys_.clear();
+                    right_keys_.clear();
                     char c;
                     while (read(tty_fd, &c, 1) > 0)
                     {
                         switch (tolower(c))
                         {
-                            case 'w': key_up    = true; break;
-                            case 's': key_down  = true; break;
-                            case 'a': key_left  = true; break;
-                            case 'd': key_right = true; break;
-                            case 'z': key_x = true; break; 
-                            case 'x': key_z = true; break; 
+                            // left arm
+                            case 'w': left_keys_.up     = true; break;
+                            case 's': left_keys_.down   = true; break;
+                            case 'a': left_keys_.left   = true; break;
+                            case 'd': left_keys_.right  = true; break;
+                            case 'z': left_keys_.z_up   = true; break;
+                            case 'x': left_keys_.z_down = true; break;
+                            // right arm
+                            case 'i': right_keys_.up     = true; break;
+                            case 'k': right_keys_.down   = true; break;
+                            case 'j': right_keys_.left   = true; break;
+                            case 'l': right_keys_.right  = true; break;
+                            case 'n': right_keys_.z_up   = true; break;
+                            case 'm': right_keys_.z_down = true; break;
                         }
                     }
                     std::this_thread::sleep_for(std::chrono::milliseconds(50));
@@ -354,18 +357,18 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
             if (keyboard_thread.joinable())
                 keyboard_thread.join();
         }
-        void keyboardJog(Arm& arm, const TempJoint& q)
+        void keyboardJog(Arm& arm, const TempJoint& q, const JogKeys& keys)
         {
-            if (!arm.target_world)   // start from where the tool is now
+            if (!arm.target_world)
                 arm.target_world = arm.T_world_base * forward_kinematics.forward_kinematics_matrix(dh_, q);
         
             Eigen::Matrix4d& T = *arm.target_world;
-            if (key_up)    T(1, 3) += STEP;
-            if (key_down)  T(1, 3) -= STEP;
-            if (key_left)  T(0, 3) += STEP;
-            if (key_right) T(0, 3) -= STEP;
-            if (key_x)     T(2, 3) += STEP;
-            if (key_z)     T(2, 3) -= STEP;
+            if (keys.up)     T(1, 3) += STEP;
+            if (keys.down)   T(1, 3) -= STEP;
+            if (keys.left)   T(0, 3) += STEP;
+            if (keys.right)  T(0, 3) -= STEP;
+            if (keys.z_up)   T(2, 3) += STEP;
+            if (keys.z_down) T(2, 3) -= STEP;
         }
         //------------------------------------Control loop----------------------------
 
@@ -506,18 +509,30 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
                         fresh = joint_positions_received_ &&
                                 (this->now() - last_joint_update_).seconds() <= 0.1;
                     }
-                    if (!fresh || !lookupBase(left_arm_)) { publishZero(left_arm_); break; }
-                
+                    if (!fresh) { publishZeroVelocity(); break; }
+                    
+                    const bool left_ok  = lookupBase(left_arm_);    
+                    const bool right_ok = lookupBase(right_arm_);
+
+                    if (!left_ok || !right_ok) { publishZeroVelocity(); break; }
+
                     TempJoint left_q{state_manager.getLeftJointPositions()};
+                    TempJoint right_q{state_manager.getRightJointPositions()};
                 
-                    // --- TEMPORARY target source ---
+                    // --- Keyboard target source ---
                     if (!keyboard_running) start_keyboard_control();
-                    const auto previous = left_arm_.target_world;
-                    keyboardJog(left_arm_, left_q);
+                    const auto previous_left = left_arm_.target_world;
+                    const auto previous_right = right_arm_.target_world;
+
+                    keyboardJog(left_arm_, left_q, left_keys_);
+                    keyboardJog(right_arm_, right_q, right_keys_);
                     // -------------------------------
                 
                     if (!trackWorldTarget(left_arm_, left_q))
-                        left_arm_.target_world = previous;   // keyboard only: undo the step that went out of reach
+                        left_arm_.target_world = previous_left; 
+                    
+                    if (!trackWorldTarget(right_arm_, right_q))
+                        right_arm_.target_world = previous_right;  
                     break;
                 }
             }
