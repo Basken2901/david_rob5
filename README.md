@@ -116,9 +116,16 @@ DNS: 8.8.8.8
 
 3. SSH into the PC
 ```
-ssh gr141@192.168.0.100
+ssh gr141@192.168.0.100 (251 now?)
 ```
 4. To logout
 ```
 exit
 ```
+
+
+to go into real robot docker and have ros2 connection:
+source setup/ros_env.sh 192.168.0.251
+ssh -X -t gr141@192.168.0.251 'cd ~/ROB5/david_rob5/setup && ./start_real.sh'
+
+
