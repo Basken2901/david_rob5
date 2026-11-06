@@ -160,8 +160,8 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         Arm right_arm_;
 
         const std::map<std::string, FixedPoses> fixed_target_poses_ = {
-            {"home_left", {{0.40, 0.20, 0.50}, Eigen::Quaterniond(0, 1, 0, 0), "home_left"}},
-            {"home_right",  {{-0.40, 0.20, 0.50}, Eigen::Quaterniond(0, 1, 0, 0), "home_right"}}}
+            {"home_left", {{0.458, 0.207, 0.921}, Eigen::Quaterniond(0, 1, 0, 0), "home_left"}},
+            {"home_right",  {{0.415, 0.377, 0.949}, Eigen::Quaterniond(0, 1, 0, 0), "home_right"}}
         };
         //-----------Variables-----------------
         PGains p_gains;
@@ -456,9 +456,9 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
                         if(left_arm_.trajectory_mode == TrajectoryMode::INACTIVE || right_arm_.trajectory_mode == TrajectoryMode::INACTIVE){
 
                             activate_trajectory(left_arm_, left_q, fixed_target_poses_.at("home_left"));
-                            activate_trajectory(right_arm_, right_q, fixed_target_poses_.at("home_right"))
+                            activate_trajectory(right_arm_, right_q, fixed_target_poses_.at("home_right"));
 
-
+                            
                         }
                         else if (left_arm_.trajectory_mode == TrajectoryMode::ACTIVE || right_arm_.trajectory_mode == TrajectoryMode::ACTIVE){
 
@@ -504,7 +504,8 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
                             
                             //trackWorldTarget(right_arm_, right_q);
 
-                            if(t >= T_total) left_arm_.trajectory_mode = TrajectoryMode::COMPLETED;
+                            if(t_left >= T_total_left) left_arm_.trajectory_mode = TrajectoryMode::COMPLETED;
+                            if(t_right >= T_total_right) right_arm_.trajectory_mode = TrajectoryMode::COMPLETED;
 
                         }
                         else if (left_arm_.trajectory_mode == TrajectoryMode::COMPLETED) {
@@ -545,7 +546,13 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
 
                     TempJoint left_q{state_manager.getLeftJointPositions()};
                     TempJoint right_q{state_manager.getRightJointPositions()};
-                
+
+                    Eigen::Matrix4d current_pose =
+                        right_arm_.T_world_base * forward_kinematics.forward_kinematics_matrix(dh_, right_q);
+
+                    RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 500,
+                        "Right current: x=%.3f y=%.3f z=%.3f",
+                        current_pose(0, 3), current_pose(1, 3), current_pose(2, 3));
                     // --- Keyboard target source ---
                     if (!keyboard_running) start_keyboard_control();
                     const auto previous_left = left_arm_.target_world;
