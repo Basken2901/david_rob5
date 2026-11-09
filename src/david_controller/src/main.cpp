@@ -490,6 +490,11 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
                 arm.clutch.A0 = *arm.target_world;
             } else if (!active) {
                 arm.clutch.engaged = false;
+                arm.target_world = arm.T_world_base *
+                       forward_kinematics.forward_kinematics_matrix(dh_, q);
+                publishZero(arm);
+                return;
+
             }
 
             const auto previous = arm.target_world;
@@ -630,6 +635,7 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
                 case ControlMode::OPERATION:
                     
                 {   
+                    
                     RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 500,
                         "Right current: OPERATION MODE");
                     bool fresh;
