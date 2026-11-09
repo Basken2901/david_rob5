@@ -120,14 +120,18 @@ std::array<double, 6> SingularityPrevention::velocity_scaler(const SingularityIn
     return scaled;
 }
 
+Eigen::Matrix4d ForwardKinematics::forward_kinematics_matrix(const DHParam& dh, const TempJoint& th) //A world pose helper
+{
+    Eigen::Matrix4d T = Eigen::Matrix4d::Identity();
+    for (int i = 0; i < 6; i++)
+        T = T * transformations.link_transformation_matrix(th.theta[i], dh.alpha[i], dh.a[i], dh.d[i]);
+    return T;   // base -> flange
+}
 
 Pose ForwardKinematics::forward_kinematics(const DHParam& dh, const TempJoint& th)
 {
-    Eigen::Matrix4d T = Eigen::Matrix4d::Identity();
+    const Eigen::Matrix4d T = forward_kinematics_matrix(dh, th);
 
-    for (int i = 0; i < 6; i++) {
-        T = T * transformations.link_transformation_matrix(th.theta[i], dh.alpha[i], dh.a[i], dh.d[i]);
-    }
     
     Pose end_point;
     end_point.x = T(0, 3);
@@ -161,14 +165,11 @@ Eigen::Matrix4d InverseKinematics::pose_to_matrix(const Pose& position)
     return transformation_m;
 }
 
-std::vector<TempJoint> InverseKinematics::all_solutions(const DHParam& dh, const Pose& target) const
+std::vector<TempJoint> InverseKinematics::all_solutions(const DHParam& dh, const Eigen::Matrix4d& T_0_6) const
 {
     std::vector<TempJoint> solutions;
-
     const double a2 = dh.a[2], a3 = dh.a[3];
     const double d4 = dh.d[3], d6 = dh.d[5];
-
-    const Eigen::Matrix4d T_0_6 = InverseKinematics::pose_to_matrix(target);
     const Eigen::Matrix3d R = T_0_6.block<3,3>(0,0);
     const Eigen::Vector3d p = T_0_6.block<3,1>(0,3);
 
@@ -234,16 +235,15 @@ std::vector<TempJoint> InverseKinematics::all_solutions(const DHParam& dh, const
 
 }
 
-std::optional<TempJoint> InverseKinematics::inverse_kinematics(const DHParam& dh, const Pose& target,
+std::optional<TempJoint> InverseKinematics::inverse_kinematics(const DHParam& dh, const Eigen::Matrix4d& T_0_6,
                                                                const TempJoint& current) const
 {
     std::optional<TempJoint> best;
     double best_cost = std::numeric_limits<double>::infinity();
- 
-    for (TempJoint sol : InverseKinematics::all_solutions(dh, target)) {
+
+    for (TempJoint sol : all_solutions(dh, T_0_6)) {
         double cost = 0.0;
         for (int i = 0; i < 6; i++) {
-            // UR joints can rotate +-2pi, so pick the equivalent angle nearest the current one
             sol.theta[i] = current.theta[i] + transformations.wrap(sol.theta[i] - current.theta[i]);
             const double diff = sol.theta[i] - current.theta[i];
             cost += diff * diff;
@@ -254,4 +254,10 @@ std::optional<TempJoint> InverseKinematics::inverse_kinematics(const DHParam& dh
         }
     }
     return best;
+}
+
+std::optional<TempJoint> InverseKinematics::inverse_kinematics(const DHParam& dh, const Pose& target,
+                                                               const TempJoint& current) const
+{
+    return inverse_kinematics(dh, pose_to_matrix(target), current);   // calls A
 }

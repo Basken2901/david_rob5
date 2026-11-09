@@ -30,6 +30,9 @@ struct DHParam {
 
 struct TempJoint {
     std::array<double, 6> theta = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+
+    TempJoint() = default;
+    TempJoint(const std::array<double, 6>& a) : theta(a) {} //Fucking cool! A constructor so we can just insert a normal std::array into this
 };
 
 struct JointsTransform {
@@ -48,6 +51,7 @@ struct SingularityInfo{ //to keep information about singularity of the robot
     double sigma_max; // largest singular value 
     double condition_number; // ratio of largest to smallest singular value (can also be used to determine closeness to singularity)
 };
+
 
 class SingularityPrevention
 {
@@ -80,6 +84,7 @@ class ForwardKinematics
     public:
         // ForwardMovements forward_kinematics(const DHParam& dh, const TempJoint& th); !!!!!!!!!!!
          //used in the jacobian_computation function
+        Eigen::Matrix4d forward_kinematics_matrix(const DHParam& dh, const TempJoint& th) ;
         Pose forward_kinematics(const DHParam& dh, const TempJoint& th);
     private:
         Transformations transformations;
@@ -89,8 +94,11 @@ class InverseKinematics
 {
     public:
         static Eigen::Matrix4d pose_to_matrix(const Pose& position);
-        std::vector<TempJoint> all_solutions(const DHParam& dh, const Pose& target) const;
-        std::optional<TempJoint> inverse_kinematics(const DHParam& dh, const Pose& target, const TempJoint& current) const;
+        std::vector<TempJoint> all_solutions(const DHParam& dh, const Eigen::Matrix4d& T_0_6) const;
+        std::optional<TempJoint> inverse_kinematics(const DHParam& dh, const Eigen::Matrix4d& T_0_6,
+                                            const TempJoint& current) const;
+        std::optional<TempJoint> inverse_kinematics(const DHParam& dh, const Pose& target,
+                                                    const TempJoint& current) const;
     private:
         Transformations transformations;
 };
