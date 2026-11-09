@@ -2,3 +2,5 @@ controller:
   ros__parameters:
     p_controller:
       kp: 1.1
+    dms_threshold: 0.5
+    relative_scaling_factor: 0.5

@@ -76,8 +76,8 @@ struct FixedPoses {
 
 
 struct JogKeys {
-    std::atomic<bool> up{false}, down{false}, left{false}, right{false}, z_up{false}, z_down{false}, home{false};
-    void clear() { up = down = left = right = z_up = z_down = home = false; }
+    std::atomic<bool> up{false}, down{false}, left{false}, right{false}, z_up{false}, z_down{false}, home{false} , operate{false};
+    void clear() { up = down = left = right = z_up = z_down = home = operate =  false; }
 };
 
 
@@ -106,10 +106,16 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
 
         //Declare initial parameter
         this->declare_parameter<double>("p_controller.kp", 1.0);
+        this->declare_parameter<double>("dms_threshold", 0.5);
+        this->declare_parameter<double>("relative_scaling_factor", 0.5);
 
         p_gains.Kp = this->get_parameter("p_controller.kp").as_double();
+        dms_threshold = this->get_parameter("dms_threshold").as_double();
+        relative_scaling_factor = this->get_parameter("relative_scaling_factor").as_double();
 
         std::cout << "Controller Gains = " << p_gains.Kp << std::endl;
+        std::cout << "Dead Man Switch Threshold = " << dms_threshold << std::endl;
+        std::cout << "Teleoperation Relative Scaling = " << relative_scaling_factor << std::endl;
 
         controller.set_gains(
             p_gains
@@ -184,13 +190,17 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         Pose left_idle_;
         Pose right_engaged_;
         Pose left_engaged_;
+        rclcpp::Time left_vr_stamp_{0, 0, RCL_ROS_TIME};
+        rclcpp::Time right_vr_stamp_{0, 0, RCL_ROS_TIME};
         //-----------Variables-----------------
         PGains p_gains;
         DHParam dh_;
         TempJoint joints_;
         Pose target_pose_;
         SingularityInfo singularity_info_; // new 
-        double scaling_factor = 1.0; // new
+        double scaling_factor = 1.0; // new //! Im using this one now
+        double relative_scaling_factor;
+        double dms_threshold;
 
         //-----------Publishers and subcribers-----------
         //rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr cmd_vel_pub_;
@@ -283,6 +293,7 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
                 geometry_msgs::msg::PoseStamped left_target;
                 left_target.header = msg.header;
                 left_target.pose = msg.left.pose;
+                left_vr_stamp_ = this->now();
                 state_manager.setLeftTarget(left_target);
             }
 
@@ -290,6 +301,7 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
                 geometry_msgs::msg::PoseStamped right_target;
                 right_target.header = msg.header;
                 right_target.pose = msg.right.pose;
+                right_vr_stamp_ = this->now();
                 state_manager.setRightTarget(right_target);
             }
 
@@ -335,7 +347,7 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
                           a[0], a[1], a[2], a[3], a[4], a[5]);
             return buf;
         }
-        bool trackWorldTarget(Arm& arm, const TempJoint& q)
+        bool compute_velocity_publisher(Arm& arm, const TempJoint& q)
         {
             if (!arm.target_world) { publishZero(arm); return true; }
         
@@ -423,6 +435,7 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
                             case 'm': right_keys_.z_down = true; break;
 
                             case 'h': left_keys_.home = true; break;
+                            case 'g': left_keys_.operate = true; break;
                         }
                     }
                     std::this_thread::sleep_for(std::chrono::milliseconds(50));
@@ -451,6 +464,47 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
             if (keys.z_up)   T(2, 3) += STEP;
             if (keys.z_down) T(2, 3) -= STEP;
             
+        }
+        static Eigen::Matrix4d poseToMatrix(const geometry_msgs::msg::Pose& p)
+        {
+            Eigen::Matrix4d T = Eigen::Matrix4d::Identity();
+            T.block<3,3>(0,0) = Eigen::Quaterniond(p.orientation.w, p.orientation.x,
+                                                   p.orientation.y, p.orientation.z)
+                                    .normalized().toRotationMatrix();
+            T.block<3,1>(0,3) = Eigen::Vector3d(p.position.x, p.position.y, p.position.z);
+            return T;
+        }
+        void operate_arm(Arm& arm, const TempJoint& q,
+                 const geometry_msgs::msg::PoseStamped& input_pose,
+                 float dms, const rclcpp::Time& last_vr_update){
+            if (!arm.target_world)
+                arm.target_world = arm.T_world_base * forward_kinematics.forward_kinematics_matrix(dh_, q);
+
+            const bool fresh  = (this->now() - last_vr_update).seconds() < 0.2;
+            const bool active = fresh && dms > dms_threshold; //!! Change the dms range
+            const Eigen::Matrix4d C = poseToMatrix(input_pose.pose);
+
+            if (active && !arm.clutch.engaged) {
+                arm.clutch.engaged = true;
+                arm.clutch.C0 = C;
+                arm.clutch.A0 = *arm.target_world;
+            } else if (!active) {
+                arm.clutch.engaged = false;
+            }
+
+            const auto previous = arm.target_world;
+            if (arm.clutch.engaged)
+                arm.target_world = controller.calculate_relative_target(arm.clutch.A0, arm.clutch.C0, 
+                                                                        C, relative_scaling_factor, 
+                                                                        Eigen::Matrix3d::Identity());
+            if(!compute_velocity_publisher(arm, q)){
+                arm.target_world = previous;
+                arm.clutch.engaged = false;
+            }
+            RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 500,
+                "%s: dms=%.2f fresh=%d engaged=%d target=(%.3f, %.3f, %.3f)",
+                arm.name.c_str(), dms, fresh, arm.clutch.engaged,
+                (*arm.target_world)(0,3), (*arm.target_world)(1,3), (*arm.target_world)(2,3));
         }
         //------------------------------------Control loop----------------------------
 
@@ -538,7 +592,7 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
 
                             
 
-                            if (!trackWorldTarget(left_arm_, left_q))
+                            if (!compute_velocity_publisher(left_arm_, left_q))
                             {
                                 left_arm_.target_world = previous_left; 
                                 RCLCPP_ERROR(get_logger(), "Move to '%s' aborted: IK failed",
@@ -547,7 +601,7 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
                                 state_manager.set_control_mode(ControlMode::TEST);      
                                 break;
                             }
-                            if (!trackWorldTarget(right_arm_, right_q)) 
+                            if (!compute_velocity_publisher(right_arm_, right_q)) 
                             {
                                 right_arm_.target_world = previous_right; 
                                 RCLCPP_ERROR(get_logger(), "Move to '%s' aborted: IK failed",
@@ -557,7 +611,7 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
                                 break;
                             }
                             
-                            //trackWorldTarget(right_arm_, right_q);
+             
 
                             if(t_left >= T_total_left) left_arm_.trajectory_mode = TrajectoryMode::COMPLETED;
                             if(t_right >= T_total_right) right_arm_.trajectory_mode = TrajectoryMode::COMPLETED;
@@ -576,6 +630,24 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
                 case ControlMode::OPERATION:
                     
                 {   
+                    RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 500,
+                        "Right current: OPERATION MODE");
+                    bool fresh;
+                    {
+                        std::lock_guard<std::mutex> lock(main_joint_positions_mutex_);
+                        fresh = joint_positions_received_ &&
+                                (this->now() - last_joint_update_).seconds() <= 0.1;
+                    }
+                    if (!fresh) { publishZeroVelocity(); break; }
+
+                    const bool left_ok  = lookupBase(left_arm_);
+                    const bool right_ok = lookupBase(right_arm_);
+                    if (!left_ok || !right_ok) { publishZeroVelocity(); break; }
+                    TempJoint left_q{state_manager.getLeftJointPositions()};
+                    TempJoint right_q{state_manager.getRightJointPositions()};
+
+                    operate_arm(left_arm_,  left_q,  state_manager.getLeftTarget(),  state_manager.getLeftGrip(),  left_vr_stamp_);
+                    operate_arm(right_arm_, right_q, state_manager.getRightTarget(), state_manager.getRightGrip(), right_vr_stamp_);
                   break;
                 }
                 case ControlMode::DEADMAN:
@@ -605,9 +677,9 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
                     Eigen::Matrix4d current_pose =
                         right_arm_.T_world_base * forward_kinematics.forward_kinematics_matrix(dh_, right_q);
 
-                    RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 500,
-                        "Right current: x=%.3f y=%.3f z=%.3f",
-                        current_pose(0, 3), current_pose(1, 3), current_pose(2, 3));
+                    //RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 500,
+                    //    "Right current: x=%.3f y=%.3f z=%.3f",
+                    //    current_pose(0, 3), current_pose(1, 3), current_pose(2, 3));
                     // --- Keyboard target source ---
                     if (!keyboard_running) start_keyboard_control();
                     const auto previous_left = left_arm_.target_world;
@@ -617,13 +689,16 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
                     if (left_keys_.home == true){
                         state_manager.set_control_mode(ControlMode::STARTUP);
                     }
+                    if (left_keys_.operate == true){
+                        state_manager.set_control_mode(ControlMode::OPERATION);
+                    }
                     keyboardJog(right_arm_, right_q, right_keys_);
                     // -------------------------------
                 
-                    if (!trackWorldTarget(left_arm_, left_q))
+                    if (!compute_velocity_publisher(left_arm_, left_q))
                         left_arm_.target_world = previous_left; 
                     
-                    if (!trackWorldTarget(right_arm_, right_q))
+                    if (!compute_velocity_publisher(right_arm_, right_q))
                         right_arm_.target_world = previous_right;  
                     break;
                 }
