@@ -6,7 +6,7 @@ import omni.kit.app
 import omni.usd
 from omni.kit.xr.core import XRCore
 from pxr import UsdGeom
-from david_interfaces.msg import (
+from interface.msg import (
     VRInput,
     VRRightController,
     VRLeftController,
@@ -20,7 +20,7 @@ class VRROSPublisherExtension(omni.ext.IExt):
         import rclpy
         from rclpy.context import Context
         from geometry_msgs.msg import Pose
-        from david_interfaces.msg import (
+        from interface.msg import (
             VRInput,
             VRRightController,
             VRLeftController,

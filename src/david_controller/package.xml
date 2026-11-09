@@ -11,7 +11,7 @@
   <depend>rclcpp</depend>
   <depend>rclcpp_action</depend>
   <depend>ament_index_cpp</depend>
-  <depend>interfaces</depend>
+  <depend>interface</depend>
   <depend>libglfw3-dev</depend>
   <depend>libgl1-mesa-dev</depend>
   <depend>geometry_msgs</depend>
