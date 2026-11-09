@@ -148,6 +148,7 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         [this](const interface::msg::VRInput::SharedPtr msg)
         {
             vr_callback(*msg);
+            vr_grip_callback(*msg);
         });
 
 
@@ -269,25 +270,10 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
             last_joint_update_ = this->now();
 
         }
-        bool lookupBase(Arm& arm)
+        void vr_grip_callback(const interface::msg::VRInput& msg)
         {
-            if (arm.base_known) return true;
-            try {
-                auto tf = tf_buffer_->lookupTransform("world", arm.base_frame, tf2::TimePointZero);
-                arm.T_world_base = tf2::transformToEigen(tf).matrix();
-                arm.T_base_world = arm.T_world_base.inverse();
-                arm.base_known = true;
-            } catch (const tf2::TransformException& e) {
-                RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 1000, "%s: waiting for base TF: %s",
-                                     arm.name.c_str(), e.what());
-            }
-            return arm.base_known;
-        }
-        void publishZero(Arm& arm)
-        {
-            std_msgs::msg::Float64MultiArray cmd;
-            cmd.data.assign(6, 0.0);
-            arm.vel_pub->publish(cmd);
+            state_manager.setLeftGrip(msg.left.dms);
+            state_manager.setRightGrip(msg.right.dms);
         }
 
 
@@ -314,7 +300,28 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
                 state_manager.setVRHeadState(vr_head_state);
             }
         }
-        void publishZeroVelocity()
+        bool lookupBase(Arm& arm)
+        {
+            if (arm.base_known) return true;
+            try {
+                auto tf = tf_buffer_->lookupTransform("world", arm.base_frame, tf2::TimePointZero);
+                arm.T_world_base = tf2::transformToEigen(tf).matrix();
+                arm.T_base_world = arm.T_world_base.inverse();
+                arm.base_known = true;
+            } catch (const tf2::TransformException& e) {
+                RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 1000, "%s: waiting for base TF: %s",
+                                     arm.name.c_str(), e.what());
+            }
+            return arm.base_known;
+        }
+        void publishZero(Arm& arm)
+        {
+            std_msgs::msg::Float64MultiArray cmd;
+            cmd.data.assign(6, 0.0);
+            arm.vel_pub->publish(cmd);
+        }
+
+        void publishZeroVelocity() //!!! FIX
         {
             std_msgs::msg::Float64MultiArray cmd;
             cmd.data.assign(6, 0.0);
