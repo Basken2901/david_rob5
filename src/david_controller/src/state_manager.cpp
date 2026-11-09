@@ -159,3 +159,23 @@ geometry_msgs::msg::PoseStamped StateManager::getVRHeadState() {
     std::lock_guard<std::mutex> lock(vr_head_state_mutex_);
     return vr_head_state_;
 }
+
+void StateManager::setLeftGrip(float grip) {
+    std::lock_guard<std::mutex> lock(left_grip_mutex_);
+    left_grip_ = grip;
+}
+
+float StateManager::getLeftGrip() {
+    std::lock_guard<std::mutex> lock(left_grip_mutex_);
+    return left_grip_;
+}
+
+void StateManager::setRightGrip(float grip) {
+    std::lock_guard<std::mutex> lock(right_grip_mutex_);
+    right_grip_ = grip;
+}
+
+float StateManager::getRightGrip() {
+    std::lock_guard<std::mutex> lock(right_grip_mutex_);
+    return right_grip_;
+}

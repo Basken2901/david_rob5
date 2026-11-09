@@ -130,6 +130,10 @@ class StateManager {
         geometry_msgs::msg::PoseStamped getRightTarget();
         void setVRHeadState(const geometry_msgs::msg::PoseStamped& head_state);
         geometry_msgs::msg::PoseStamped getVRHeadState();
+        void setLeftGrip(float grip);
+        float getLeftGrip();
+        void setRightGrip(float grip);
+        float getRightGrip();
         
 
     private:
@@ -163,6 +167,10 @@ class StateManager {
         std::mutex right_target_mutex_;
         geometry_msgs::msg::PoseStamped vr_head_state_;
         std::mutex vr_head_state_mutex_;
+        float left_grip_ = 0.0f;
+        std::mutex left_grip_mutex_;
+        float right_grip_ = 0.0f;
+        std::mutex right_grip_mutex_;
 
         static constexpr std::array<const char*, 6> JOINT_NAMES = {
             "shoulder_pan_joint", "shoulder_lift_joint", "elbow_joint",
