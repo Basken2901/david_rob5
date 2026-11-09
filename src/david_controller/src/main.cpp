@@ -41,6 +41,11 @@ using namespace std::chrono_literals;
 #include "transformations.h"
 #include "controller.h"
 
+struct Clutch {
+    bool engaged = false;
+    Eigen::Matrix4d C0 = Eigen::Matrix4d::Identity();   // controller pose at latch
+    Eigen::Matrix4d A0 = Eigen::Matrix4d::Identity();   // arm target at latch
+};
 
 struct Arm {
     std::string name;          // "left" or "right"
@@ -57,6 +62,8 @@ struct Arm {
     StateManager state_manager;
     TrajectoryMode trajectory_mode = TrajectoryMode::INACTIVE;
     rclcpp::Time trajectory_start{0, 0, RCL_ROS_TIME};
+
+    Clutch clutch;
 };
 
 struct FixedPoses { 
@@ -163,6 +170,11 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
             {"home_left", {{0.458, 0.207, 0.921}, Eigen::Quaterniond(0, 1, 0, 0), "home_left"}},
             {"home_right",  {{0.415, 0.377, 0.949}, Eigen::Quaterniond(0, 1, 0, 0), "home_right"}}
         };
+
+        Pose right_idle_;
+        Pose left_idle_;
+        Pose right_engaged_;
+        Pose left_engaged_;
         //-----------Variables-----------------
         PGains p_gains;
         DHParam dh_;
@@ -435,7 +447,7 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
                 case ControlMode::SAFETY:
                     // ...
                     break;
-                case ControlMode::STARTUP:
+                case ControlMode::STARTUP: //! Ugly code, needs fixing
                     {
                         bool fresh;
                         {
@@ -453,6 +465,7 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
                         TempJoint left_q{state_manager.getLeftJointPositions()};
                         TempJoint right_q{state_manager.getRightJointPositions()};
 
+
                         if(left_arm_.trajectory_mode == TrajectoryMode::INACTIVE || right_arm_.trajectory_mode == TrajectoryMode::INACTIVE){
 
                             activate_trajectory(left_arm_, left_q, fixed_target_poses_.at("home_left"));
@@ -462,6 +475,7 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
                         }
                         else if (left_arm_.trajectory_mode == TrajectoryMode::ACTIVE || right_arm_.trajectory_mode == TrajectoryMode::ACTIVE){
 
+                       
                             const auto previous_left  = left_arm_.target_world;
                             const auto previous_right = right_arm_.target_world;
 
@@ -469,6 +483,7 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
                             const double T_total_right = right_arm_.planner.get_total_time();
                             const double t_left = std::min((this->now() - left_arm_.trajectory_start).seconds(), T_total_left);
                             const double t_right = std::min((this->now() - right_arm_.trajectory_start).seconds(), T_total_right);
+
 
                             TrajectoryPoint point_left = left_arm_.planner.get_trajectory_point(t_left);
                             TrajectoryPoint point_right = right_arm_.planner.get_trajectory_point(t_right);

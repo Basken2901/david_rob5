@@ -127,3 +127,23 @@ std::array<double, 6> StateManager::getRightJointPositions() {
     std::lock_guard<std::mutex> lock(right_joint_positions_mutex_);
     return right_joint_positions_;
 }
+
+void StateManager::setRightIdleState(Pose right_idle){
+    std::lock_guard<std::mutex> lock(right_idle_mutex_);
+    right_idle_state = right_idle;
+}
+
+Pose StateManager::getRightIdleState(){
+    std::lock_guard<std::mutex> lock(right_idle_mutex_);
+    return right_idle_state;
+}
+
+void StateManager::setLeftIdleState(Pose left_idle){
+    std::lock_guard<std::mutex> lock(left_idle_mutex_);
+    left_idle_state = left_idle;
+}
+
+Pose StateManager::getLeftIdleState(){
+    std::lock_guard<std::mutex> lock(left_idle_mutex_);
+    return left_idle_state;
+}

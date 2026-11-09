@@ -12,6 +12,8 @@
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include <mutex>
 
+#include "kinematics.h"
+
 constexpr std::size_t UR5E_DOF = 6;
 
 enum class TrajectoryMode {
@@ -29,8 +31,6 @@ enum class ControlMode {
     DEADMAN = 3,
     TEST = 4
 };
-
-
 
 struct PGains {
     double Kp = 0.251;
@@ -137,6 +137,10 @@ class StateManager {
         std::array<double, 6> getLeftJointPositions();
         void setRightJointPositions(const sensor_msgs::msg::JointState& msg);
         std::array<double, 6> getRightJointPositions();
+        void setRightIdleState(Pose right_idle);
+        Pose getRightIdleState();
+        void setLeftIdleState(Pose left_idle);
+        Pose getLeftIdleState();
         
 
     private:
@@ -155,6 +159,11 @@ class StateManager {
         std::mutex arm_global_velocity_mutex_;
         Stamped3DVector arm_global_acceleration_;
         std::mutex arm_global_acceleration_mutex_;
+        std::mutex right_idle_mutex_;
+        Pose right_idle_state;
+        std::mutex left_idle_mutex_;
+        Pose left_idle_state;
+        
 
         std::mutex joint_positions_mutex_;
         std::array<double, 6> joint_positions_{};
