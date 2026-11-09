@@ -102,19 +102,6 @@ struct JointState
     std::array<double, UR5E_DOF> effort{};
 };
 
-struct VRState
-{
-    geometry_msgs::msg::PoseStamped left_pose;
-    geometry_msgs::msg::PoseStamped right_pose;
-    geometry_msgs::msg::PoseStamped head_pose;
-
-    bool left_clutch = false;
-    bool right_clutch = false;
-
-    float left_gripper = 0.0f;
-    float right_gripper = 0.0f;
-};
-
 class StateManager {    
     public:
         void set_arm_state(const ArmState& new_data);
@@ -137,6 +124,12 @@ class StateManager {
         std::array<double, 6> getLeftJointPositions();
         void setRightJointPositions(const sensor_msgs::msg::JointState& msg);
         std::array<double, 6> getRightJointPositions();
+        void setLeftTarget(const geometry_msgs::msg::PoseStamped& target);
+        geometry_msgs::msg::PoseStamped getLeftTarget();
+        void setRightTarget(const geometry_msgs::msg::PoseStamped& target);
+        geometry_msgs::msg::PoseStamped getRightTarget();
+        void setVRHeadState(const geometry_msgs::msg::PoseStamped& head_state);
+        geometry_msgs::msg::PoseStamped getVRHeadState();
         
 
     private:
@@ -163,6 +156,13 @@ class StateManager {
         std::array<double, 6> left_joint_positions_{};
         std::mutex right_joint_positions_mutex_;
         std::array<double, 6> right_joint_positions_{};
+
+        geometry_msgs::msg::PoseStamped left_target_;
+        std::mutex left_target_mutex_;
+        geometry_msgs::msg::PoseStamped right_target_;
+        std::mutex right_target_mutex_;
+        geometry_msgs::msg::PoseStamped vr_head_state_;
+        std::mutex vr_head_state_mutex_;
 
         static constexpr std::array<const char*, 6> JOINT_NAMES = {
             "shoulder_pan_joint", "shoulder_lift_joint", "elbow_joint",

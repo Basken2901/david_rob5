@@ -24,6 +24,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
+            'vr_publisher = interface.vr_publisher:main'
         ],
     },
 )
