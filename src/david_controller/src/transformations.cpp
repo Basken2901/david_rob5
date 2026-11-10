@@ -99,3 +99,12 @@ Eigen::Vector3d Transformations::quaternion_to_euler(const Eigen::Quaterniond& q
     return Eigen::Vector3d(roll, pitch, yaw);
 }
 
+Eigen::Matrix4d Transformations::pose_to_matrix(const geometry_msgs::msg::Pose& p)
+        {
+            Eigen::Matrix4d T = Eigen::Matrix4d::Identity();
+            T.block<3,3>(0,0) = Eigen::Quaterniond(p.orientation.w, p.orientation.x,
+                                                   p.orientation.y, p.orientation.z)
+                                    .normalized().toRotationMatrix();
+            T.block<3,1>(0,3) = Eigen::Vector3d(p.position.x, p.position.y, p.position.z);
+            return T;
+        }

@@ -465,15 +465,7 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
             if (keys.z_down) T(2, 3) -= STEP;
             
         }
-        static Eigen::Matrix4d poseToMatrix(const geometry_msgs::msg::Pose& p)
-        {
-            Eigen::Matrix4d T = Eigen::Matrix4d::Identity();
-            T.block<3,3>(0,0) = Eigen::Quaterniond(p.orientation.w, p.orientation.x,
-                                                   p.orientation.y, p.orientation.z)
-                                    .normalized().toRotationMatrix();
-            T.block<3,1>(0,3) = Eigen::Vector3d(p.position.x, p.position.y, p.position.z);
-            return T;
-        }
+        
         void operate_arm(Arm& arm, const TempJoint& q,
                  const geometry_msgs::msg::PoseStamped& input_pose,
                  float dms, const rclcpp::Time& last_vr_update){
@@ -481,8 +473,8 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
                 arm.target_world = arm.T_world_base * forward_kinematics.forward_kinematics_matrix(dh_, q);
 
             const bool fresh  = (this->now() - last_vr_update).seconds() < 0.2;
-            const bool active = fresh && dms > dms_threshold; //!! Change the dms range
-            const Eigen::Matrix4d C = poseToMatrix(input_pose.pose);
+            const bool active = fresh && dms > dms_threshold; 
+            const Eigen::Matrix4d C = transformations.pose_to_matrix(input_pose.pose);
 
             if (active && !arm.clutch.engaged) {
                 arm.clutch.engaged = true;

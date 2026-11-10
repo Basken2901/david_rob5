@@ -3,6 +3,7 @@
 #include <cmath>
 #include <eigen3/Eigen/Dense>
 #include <eigen3/Eigen/Geometry>
+#include "geometry_msgs/msg/pose_stamped.hpp"
 
 
 
@@ -23,4 +24,5 @@ struct Transformations{
     static Eigen::Matrix4d inverse_rigid(const Eigen::Matrix4d& T);
     static double wrap(double angle);
     Eigen::Vector3d quaternion_to_euler(const Eigen::Quaterniond& q) const;
+    static Eigen::Matrix4d pose_to_matrix(const geometry_msgs::msg::Pose& p);
 };
