@@ -129,3 +129,7 @@ source setup/ros_env.sh 192.168.0.251
 ssh -X -t gr141@192.168.0.251 'cd ~/ROB5/david_rob5/setup && ./start_real.sh'
 
 
+
+cd ~/ROB5/david_rob5/setup
+chmod +x install_david_launcher.sh
+./install_david_launcher.sh
