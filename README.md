@@ -122,14 +122,20 @@ ssh gr141@192.168.0.100 (251 now?)
 ```
 exit
 ```
+This launches the MoveIT planner in another Rviz window
 
+### To launch IsaacSim with steamVR and publishers
 
-to go into real robot docker and have ros2 connection:
-source setup/ros_env.sh 192.168.0.251
-ssh -X -t gr141@192.168.0.251 'cd ~/ROB5/david_rob5/setup && ./start_real.sh'
-
-
-
-cd ~/ROB5/david_rob5/setup
-chmod +x install_david_launcher.sh
-./install_david_launcher.sh
+1. Launch steamVR through steam
+2. Connect vr headset to steamapp and link to host pc
+3. Get the correct root from David workspace root
+```
+realpath src/david_sim/exts
+```
+4. Run the command, replacing "/absolute/path/from/realpath" with the workspace path
+```
+XR_RUNTIME_JSON="$HOME/.steam/debian-installation/steamapps/common/SteamVR/steamxr_linux64.json" \
+./isaac-sim.xr.vr.sh \
+  --ext-folder "/absolute/path/from/realpath" \
+  --enable vr.ros.publisher
+```
