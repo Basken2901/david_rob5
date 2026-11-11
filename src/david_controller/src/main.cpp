@@ -23,13 +23,11 @@
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
 #include <tf2_eigen/tf2_eigen.hpp> 
-#include <Eigen/Geometry>
 #include "geometry_msgs/msg/twist_stamped.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "interface/msg/vr_input.hpp"
 #include <std_msgs/msg/float64_multi_array.hpp>
 #include <sensor_msgs/msg/joint_state.hpp>
-
 
 #include "sensor_msgs/msg/joint_state.hpp"
 #include "std_msgs/msg/bool.hpp"
@@ -185,7 +183,7 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
 
         const std::map<std::string, FixedPoses> fixed_target_poses_ = {
             {"home_left", {{0.458, 0.207, 0.921}, Eigen::Quaterniond(0, 1, 0, 0), "home_left"}},
-            {"home_right",  {{0.415, 0.377, 0.949}, Eigen::Quaterniond(0, 1, 0, 0), "home_right"}}
+            {"home_right",  {{0.315, -0.138, 0.949}, Eigen::Quaterniond(0, 1, 0, 0), "home_right"}}
         };
 
         Pose right_idle_;
@@ -232,7 +230,6 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         rclcpp::Time last_joint_update_{0, 0, RCL_ROS_TIME}; //for safety
         bool target_initialized_ = false;
         static constexpr double STEP = 0.005;
-        double max_ik_jump_ = 0.5;
 
 
         //--------------------CallBacks---------------
@@ -363,20 +360,6 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
                                      arm.name.c_str());
                 return false;
             }
-            double max_jump = 0.0;
-            int worst_joint = 0;
-            for (int i = 0; i < 6; ++i) {
-                const double d = std::abs(ik->theta[i] - q.theta[i]);
-                if (d > max_jump) { max_jump = d; worst_joint = i; }
-            }
-            if (max_jump > max_ik_jump_) {
-                publishZero(arm);
-                RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 1000,
-                    "%s: IK wants joint %d to move %.2f rad in one step - rejected (near singularity / branch flip)",
-                    arm.name.c_str(), worst_joint + 1, max_jump);
-                return false;   // callers already restore the previous target (and re-latch the clutch)
-            }
-
         
             auto vel = controller.p_controller(q.theta, ik->theta);
             auto J = singularity_prevention.jacobian_computation(dh_, q);
@@ -582,7 +565,6 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
                         TempJoint right_q{state_manager.getRightJointPositions()};
 
 
-
                         if(left_arm_.trajectory_mode == TrajectoryMode::INACTIVE || right_arm_.trajectory_mode == TrajectoryMode::INACTIVE){
 
                             activate_trajectory(left_arm_, left_q, fixed_target_poses_.at("home_left"));
@@ -701,9 +683,9 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
                     Eigen::Matrix4d current_pose =
                         right_arm_.T_world_base * forward_kinematics.forward_kinematics_matrix(dh_, right_q);
 
-                    //RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 500,
-                    //    "Right current: x=%.3f y=%.3f z=%.3f",
-                    //    current_pose(0, 3), current_pose(1, 3), current_pose(2, 3));
+                    RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 500,
+                        "Right current: x=%.3f y=%.3f z=%.3f",
+                        current_pose(0, 3), current_pose(1, 3), current_pose(2, 3));
                     // --- Keyboard target source ---
                     if (!keyboard_running) start_keyboard_control();
                     const auto previous_left = left_arm_.target_world;
