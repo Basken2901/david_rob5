@@ -139,3 +139,6 @@ XR_RUNTIME_JSON="$HOME/.steam/debian-installation/steamapps/common/SteamVR/steam
   --ext-folder "/absolute/path/from/realpath" \
   --enable vr.ros.publisher
 ```
+cd ~/ROB5/david_rob5/setup
+chmod +x install_david_launcher.sh
+./install_david_launcher.sh
