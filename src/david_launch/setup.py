@@ -30,6 +30,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
+            'isaac_joint_states = david_launch.isaac_joint_states:main',
         ],
     },
 )

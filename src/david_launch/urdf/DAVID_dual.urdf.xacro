@@ -45,8 +45,8 @@
 
     <!-- MEASURE ON THE REAL ROBOT (radians). Rotation of each arm base about its own axis.
          Jog shoulder_pan to 0 on the pendant and turn this until RViz/Isaac matches. -->
-    <xacro:arg name="left_base_yaw"  default="0.0" />
-    <xacro:arg name="right_base_yaw" default="3.14159" />
+    <xacro:arg name="left_base_yaw"  default="0.785398163397" />
+    <xacro:arg name="right_base_yaw" default="-2.356194490192" />
     <!-- MEASURE: rotation of each gripper about the tool flange axis (radians).
          Put wrist_3 at 0 and turn this until the fingers match the real gripper. -->
     <xacro:arg name="left_gripper_yaw"  default="0.0" />

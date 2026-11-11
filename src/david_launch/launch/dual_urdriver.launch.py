@@ -143,9 +143,15 @@ def generate_launch_description():
         condition=IfCondition(lc("launch_rviz")),
     )
 
+    isaac_joint_states = Node(
+        package="david_launch",
+        executable="isaac_joint_states",
+        output="screen",
+    )
+
     return LaunchDescription(
         args
-        + [rsp, control_node, spawn_active, rviz]
+        + [rsp, control_node, spawn_active, rviz, isaac_joint_states]
         + per_arm("left")
         + per_arm("right")
     )
