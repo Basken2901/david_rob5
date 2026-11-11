@@ -58,6 +58,7 @@ struct Arm {
     bool base_known = false;
 
     std::optional<Eigen::Matrix4d> target_world;   
+    std::optional<Eigen::Matrix4d> last_valid;  
 
     PathPlanner planner;
     StateManager state_manager;
@@ -65,6 +66,7 @@ struct Arm {
     rclcpp::Time trajectory_start{0, 0, RCL_ROS_TIME};
 
     Clutch clutch;
+    
 };
 
 struct FixedPoses { 
@@ -184,8 +186,8 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         Arm right_arm_;
 
         const std::map<std::string, FixedPoses> fixed_target_poses_ = {
-            {"home_left", {{0.458, 0.207, 0.921}, Eigen::Quaterniond(0, 1, 0, 0), "home_left"}},
-            {"home_right",  {{0.315, -0.138, 0.949}, Eigen::Quaterniond(0, 1, 0, 0), "home_right"}}
+            {"home_left", {{0.408, 0.257, 0.651}, Eigen::Quaterniond(0, 1, 0, 0), "home_left"}},
+            {"home_right",  {{0.380, -0.358, 0.599}, Eigen::Quaterniond(0, 1, 0, 0), "home_right"}}
         };
 
         Pose right_idle_;
@@ -233,6 +235,7 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         bool target_initialized_ = false;
         static constexpr double STEP = 0.005;
 
+        
 
         //--------------------CallBacks---------------
         void joint_callback(const sensor_msgs::msg::JointState& msg)
@@ -287,6 +290,7 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         {
             state_manager.setLeftGrip(msg.left.dms);
             state_manager.setRightGrip(msg.right.dms);
+            
         }
 
 
@@ -343,13 +347,13 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
             left_vel_pub_->publish(cmd);
             right_vel_pub_->publish(cmd);
         }
-        static std::string fmt(const std::array<double, 6>& a) //Help to see what we publish
-        {
-            char buf[128];
-            std::snprintf(buf, sizeof(buf), "[%7.3f %7.3f %7.3f %7.3f %7.3f %7.3f]",
-                          a[0], a[1], a[2], a[3], a[4], a[5]);
-            return buf;
-        }
+        //static std::string fmt(const std::array<double, 6>& a) //Help to see what we publish
+        //{
+        //    char buf[128];
+        //    std::snprintf(buf, sizeof(buf), "[%7.3f %7.3f %7.3f %7.3f %7.3f %7.3f]",
+        //                  a[0], a[1], a[2], a[3], a[4], a[5]);
+        //    return buf;
+        //}
         bool compute_velocity_publisher(Arm& arm, const TempJoint& q)
         {
             if (!arm.target_world) { publishZero(arm); return true; }
@@ -362,7 +366,8 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
                                      arm.name.c_str());
                 return false;
             }
-        
+            arm.last_valid = arm.target_world;
+
             auto vel = controller.p_controller(q.theta, ik->theta);
             auto J = singularity_prevention.jacobian_computation(dh_, q);
             singularity_info_ = singularity_prevention.compute_singularity_info(J);
@@ -372,6 +377,28 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
             cmd.data.assign(vel_scaled.begin(), vel_scaled.end());
             arm.vel_pub->publish(cmd);
             return true;
+        }
+
+        void compute_dls_publisher(Arm& arm, const TempJoint& q)
+        {
+            if (!arm.target_world) { publishZero(arm); return; }
+        
+            const Eigen::Matrix4d target_base = arm.T_base_world * *arm.target_world;   
+            const Eigen::Matrix4d target_current = forward_kinematics.forward_kinematics_matrix(dh_, q);
+            const Eigen::MatrixXd J     = singularity_prevention.jacobian_computation(dh_, q);
+            const SingularityInfo info  = singularity_prevention.compute_singularity_info(J);
+        
+            const auto qdot = controller.dls_controller(J, info.sigma_min, target_current, target_base);
+        
+            std_msgs::msg::Float64MultiArray cmd;
+            cmd.data.assign(qdot.begin(), qdot.end());
+            arm.vel_pub->publish(cmd);
+        }
+
+        void track_target(Arm& arm, const TempJoint& q){
+            if (compute_velocity_publisher(arm, q)) return;
+                arm.target_world = arm.last_valid;
+            if (arm.target_world) compute_velocity_publisher(arm,q);
         }
         //------------------------Trajectory functions------------------------------------------
 
@@ -501,13 +528,11 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
 
             const auto previous = arm.target_world;
             if (arm.clutch.engaged)
-                arm.target_world = controller.calculate_relative_target(arm.clutch.A0, arm.clutch.C0, 
-                                                                        C, relative_scaling_factor, 
+                arm.target_world = controller.calculate_relative_target(arm.clutch.A0, arm.clutch.C0, C,
+                                                                        relative_scaling_factor,
                                                                         Eigen::Matrix3d::Identity());
-            if(!compute_velocity_publisher(arm, q)){
-                arm.target_world = previous;
-                arm.clutch.engaged = false;
-            }
+            compute_dls_publisher(arm, q);
+            
             RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 500,
                 "%s: dms=%.2f fresh=%d engaged=%d target=(%.3f, %.3f, %.3f)",
                 arm.name.c_str(), dms, fresh, arm.clutch.engaged,
@@ -532,15 +557,8 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         void control_loop()
         {
             auto now = get_clock()->now();
-//
-            //if (last_time.nanoseconds() == 0)
-            //{
-            //    last_time = now;
-            //}
-            const double time = (this->now() - start_time_).seconds();
 
-
-            TempJoint tempth;         
+            const double time = (this->now() - start_time_).seconds();       
             
 
             switch (state_manager.get_control_mode())
@@ -682,12 +700,17 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
                     TempJoint left_q{state_manager.getLeftJointPositions()};
                     TempJoint right_q{state_manager.getRightJointPositions()};
 
-                    Eigen::Matrix4d current_pose =
+                    Eigen::Matrix4d current_pose_r =
                         right_arm_.T_world_base * forward_kinematics.forward_kinematics_matrix(dh_, right_q);
+                    Eigen::Matrix4d current_pose_l =
+                        left_arm_.T_world_base * forward_kinematics.forward_kinematics_matrix(dh_, left_q);
 
                     RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 500,
                         "Right current: x=%.3f y=%.3f z=%.3f",
-                        current_pose(0, 3), current_pose(1, 3), current_pose(2, 3));
+                        current_pose_r(0, 3), current_pose_r(1, 3), current_pose_r(2, 3));
+                    RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 500,
+                        "Left current: x=%.3f y=%.3f z=%.3f",
+                        current_pose_l(0, 3), current_pose_l(1, 3), current_pose_l(2, 3));
                     // --- Keyboard target source ---
                     if (!keyboard_running) start_keyboard_control();
                     const auto previous_left = left_arm_.target_world;
@@ -704,6 +727,9 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
                             forward_kinematics.forward_kinematics_matrix(dh_, left_q);
                         right_arm_.target_world = right_arm_.T_world_base *
                             forward_kinematics.forward_kinematics_matrix(dh_, right_q);
+
+                        left_arm_.last_valid  = left_arm_.target_world;
+                        right_arm_.last_valid = right_arm_.target_world;
 
                         s_move_was_active_ = true;
                         break;
@@ -727,7 +753,11 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
                         left_arm_.target_world = previous_left; 
                     
                     if (!compute_velocity_publisher(right_arm_, right_q))
-                        right_arm_.target_world = previous_right;  
+                        right_arm_.target_world = previous_right; 
+                    
+                    track_target(left_arm_, left_q);
+                    track_target(right_arm_, right_q);
+
                     break;
                 }
             }
