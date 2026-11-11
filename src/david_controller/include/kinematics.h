@@ -94,7 +94,7 @@ class InverseKinematics
 {
     public:
         static Eigen::Matrix4d pose_to_matrix(const Pose& position);
-        std::vector<TempJoint> all_solutions(const DHParam& dh, const Eigen::Matrix4d& T_0_6) const;
+        std::vector<TempJoint> all_solutions(const DHParam& dh, const Eigen::Matrix4d& T_0_6,  double q6_hint = 0.0) const;
         std::optional<TempJoint> inverse_kinematics(const DHParam& dh, const Eigen::Matrix4d& T_0_6,
                                             const TempJoint& current) const;
         std::optional<TempJoint> inverse_kinematics(const DHParam& dh, const Pose& target,

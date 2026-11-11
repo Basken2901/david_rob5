@@ -23,11 +23,13 @@
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
 #include <tf2_eigen/tf2_eigen.hpp> 
+#include <Eigen/Geometry>
 #include "geometry_msgs/msg/twist_stamped.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "interface/msg/vr_input.hpp"
 #include <std_msgs/msg/float64_multi_array.hpp>
 #include <sensor_msgs/msg/joint_state.hpp>
+
 
 #include "sensor_msgs/msg/joint_state.hpp"
 #include "std_msgs/msg/bool.hpp"
@@ -229,6 +231,7 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         rclcpp::Time last_joint_update_{0, 0, RCL_ROS_TIME}; //for safety
         bool target_initialized_ = false;
         static constexpr double STEP = 0.005;
+        double max_ik_jump_ = 0.5;
 
 
         //--------------------CallBacks---------------
@@ -359,6 +362,20 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
                                      arm.name.c_str());
                 return false;
             }
+            double max_jump = 0.0;
+            int worst_joint = 0;
+            for (int i = 0; i < 6; ++i) {
+                const double d = std::abs(ik->theta[i] - q.theta[i]);
+                if (d > max_jump) { max_jump = d; worst_joint = i; }
+            }
+            if (max_jump > max_ik_jump_) {
+                publishZero(arm);
+                RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 1000,
+                    "%s: IK wants joint %d to move %.2f rad in one step - rejected (near singularity / branch flip)",
+                    arm.name.c_str(), worst_joint + 1, max_jump);
+                return false;   // callers already restore the previous target (and re-latch the clutch)
+            }
+
         
             auto vel = controller.p_controller(q.theta, ik->theta);
             auto J = singularity_prevention.jacobian_computation(dh_, q);

@@ -165,7 +165,7 @@ Eigen::Matrix4d InverseKinematics::pose_to_matrix(const Pose& position)
     return transformation_m;
 }
 
-std::vector<TempJoint> InverseKinematics::all_solutions(const DHParam& dh, const Eigen::Matrix4d& T_0_6) const
+std::vector<TempJoint> InverseKinematics::all_solutions(const DHParam& dh, const Eigen::Matrix4d& T_0_6, double q6_hint) const
 {
     std::vector<TempJoint> solutions;
     const double a2 = dh.a[2], a3 = dh.a[3];
@@ -194,11 +194,17 @@ std::vector<TempJoint> InverseKinematics::all_solutions(const DHParam& dh, const
             const double sn5 = std::sin(t5);
  
             // theta6 (free when the wrist is singular, sin(theta5) = 0)
-            double t6 = 0.0;
-            if (std::abs(sn5) > 1e-9) {
+            double t6 = q6_hint;
+            if (std::abs(sn5) > 1e-6) {
                 t6 = std::atan2((-R(0, 1) * sn1 + R(1, 1) * c1) / sn5,
                                 ( R(0, 0) * sn1 - R(1, 0) * c1) / sn5);
             }
+
+            //double t6 = 0.0;
+            //if (std::abs(sn5) > 1e-9) {
+            //    t6 = std::atan2((-R(0, 1) * sn1 + R(1, 1) * c1) / sn5,
+            //                    ( R(0, 0) * sn1 - R(1, 0) * c1) / sn5);
+            //}
  
             // Reduce to a planar problem for joints 2, 3, 4
             const Eigen::Matrix4d T_0_1 = transformations.standard_link(t1, dh.alpha[1], dh.a[1], dh.d[0]);
@@ -241,7 +247,7 @@ std::optional<TempJoint> InverseKinematics::inverse_kinematics(const DHParam& dh
     std::optional<TempJoint> best;
     double best_cost = std::numeric_limits<double>::infinity();
 
-    for (TempJoint sol : all_solutions(dh, T_0_6)) {
+    for (TempJoint sol : all_solutions(dh, T_0_6, current.theta[5])) {
         double cost = 0.0;
         for (int i = 0; i < 6; i++) {
             sol.theta[i] = current.theta[i] + transformations.wrap(sol.theta[i] - current.theta[i]);
