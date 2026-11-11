@@ -4,3 +4,4 @@ controller:
       kp: 10.0
     dms_threshold: 0.5
     relative_scaling_factor: 1.0
+    tool_offset_z: 0.15

@@ -108,10 +108,12 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         this->declare_parameter<double>("p_controller.kp", 1.0);
         this->declare_parameter<double>("dms_threshold", 0.5);
         this->declare_parameter<double>("relative_scaling_factor", 0.5);
+        this->declare_parameter<double>("tool_offset_z", 0.15);
 
         p_gains.Kp = this->get_parameter("p_controller.kp").as_double();
         dms_threshold = this->get_parameter("dms_threshold").as_double();
         relative_scaling_factor = this->get_parameter("relative_scaling_factor").as_double();
+        dh_.d[5] = 0.0996 + this->get_parameter("tool_offset_z").as_double(); 
 
         std::cout << "Controller Gains = " << p_gains.Kp << std::endl;
         std::cout << "Dead Man Switch Threshold = " << dms_threshold << std::endl;
@@ -365,7 +367,7 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
             auto J = singularity_prevention.jacobian_computation(dh_, q);
             singularity_info_ = singularity_prevention.compute_singularity_info(J);
             auto vel_scaled = singularity_prevention.velocity_scaler(singularity_info_, vel);
-        
+            
             std_msgs::msg::Float64MultiArray cmd;
             cmd.data.assign(vel_scaled.begin(), vel_scaled.end());
             arm.vel_pub->publish(cmd);
