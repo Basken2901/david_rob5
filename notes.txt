@@ -1,0 +1,14 @@
+docker compose:
+    --build if we have done changes to versions or just general changes the dockerfile
+    -f for specifying the configuration file
+    -d for detach, so docker runs in the background
+
+difference between docker build and docker compose, is build is for 1 container, and compose is more than 1.
+So we use ur_sim left, ur_sim right and the docker we run our system in
+
+docker exec
+    -it flag is two flags combined:
+        -i means interactive, so the changes we make in the code outside of the container, also goes into the container
+        -t created a pseudo terminal 
+        bash at the end, start a bash shell
+

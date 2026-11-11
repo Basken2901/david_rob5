@@ -1,0 +1,2 @@
+There need to be done some calibration at some point:
+extract each robot’s calibration with ur_calibration

@@ -24,6 +24,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
+            'test_node = david_sim.test:main',
         ],
     },
 )

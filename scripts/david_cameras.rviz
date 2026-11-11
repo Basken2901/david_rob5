@@ -1,0 +1,40 @@
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Class: rviz_default_plugins/Grid
+      Enabled: true
+      Name: Grid
+      Cell Size: 0.5
+    - Class: rviz_default_plugins/PointCloud2
+      Enabled: true
+      Name: Camera 1
+      Topic:
+        Value: /david/cam1/depth/color/points
+      Size (Pixels): 2
+      Style: Points
+      Color Transformer: RGB8
+    - Class: rviz_default_plugins/PointCloud2
+      Enabled: true
+      Name: Camera 2
+      Topic:
+        Value: /david/cam2/depth/color/points
+      Size (Pixels): 2
+      Style: Points
+      Color Transformer: RGB8
+  Global Options:
+    Fixed Frame: david_world
+  Name: root
+  Tools:
+    - Class: rviz_default_plugins/Interact
+    - Class: rviz_default_plugins/MoveCamera
+  Views:
+    Current:
+      Class: rviz_default_plugins/Orbit
+      Distance: 3
+      Focal Point:
+        X: 0
+        Y: 0
+        Z: 1

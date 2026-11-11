@@ -1,0 +1,74 @@
+cmake_minimum_required(VERSION 3.5)
+project(david_controller)
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED True)
+
+if (POLICY CMP0072)
+  cmake_policy(SET CMP0072 NEW)
+endif()
+
+find_package(ament_cmake REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(rclcpp_action REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(OpenGL REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(tf2_eigen REQUIRED)
+find_package(interface REQUIRED)
+
+include_directories(include)
+
+Install(PROGRAMS
+  scripts/UR5e_msg_translator.py
+  DESTINATION lib/${PROJECT_NAME}
+
+
+
+)
+
+
+add_executable(controller
+    src/main.cpp
+    src/path_planner.cpp
+    src/state_manager.cpp
+    src/transformations.cpp
+    src/kinematics.cpp
+    src/controller.cpp
+)
+
+target_include_directories(controller PUBLIC
+  ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+target_link_libraries(controller 
+  OpenGL::GL 
+  tf2_ros::tf2_ros
+  tf2_eigen::tf2_eigen
+)
+
+ament_target_dependencies(controller
+  rclcpp
+  rclcpp_action
+  std_msgs
+  geometry_msgs
+  sensor_msgs 
+  tf2_ros
+  tf2_eigen
+  interface
+)
+
+install(TARGETS controller
+  DESTINATION lib/${PROJECT_NAME}
+)
+# Install config files
+install(DIRECTORY config/
+  DESTINATION share/${PROJECT_NAME}/config
+)
+
+ament_package()
+
+ament_target_dependencies(controller rclcpp geometry_msgs)
