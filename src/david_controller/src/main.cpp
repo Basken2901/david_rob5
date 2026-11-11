@@ -78,8 +78,8 @@ struct FixedPoses {
 
 
 struct JogKeys {
-    std::atomic<bool> up{false}, down{false}, left{false}, right{false}, z_up{false}, z_down{false}, home{false} , operate{false};
-    void clear() { up = down = left = right = z_up = z_down = home = operate =  false; }
+    std::atomic<bool> up{false}, down{false}, left{false}, right{false}, z_up{false}, z_down{false}, home{false} , operate{false}, s_move{false};
+    void clear() { up = down = left = right = z_up = z_down = home = operate = s_move = false; }
 };
 
 
@@ -203,6 +203,7 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         double scaling_factor = 1.0; // new //! Im using this one now
         double relative_scaling_factor;
         double dms_threshold;
+        bool s_move_was_active_ = false;
 
         //-----------Publishers and subcribers-----------
         //rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr cmd_vel_pub_;
@@ -453,6 +454,7 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
 
                             case 'h': left_keys_.home = true; break;
                             case 'g': left_keys_.operate = true; break;
+                            case 't': left_keys_.s_move = true; break;
                         }
                     }
                     std::this_thread::sleep_for(std::chrono::milliseconds(50));
@@ -481,6 +483,12 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
             if (keys.z_up)   T(2, 3) += STEP;
             if (keys.z_down) T(2, 3) -= STEP;
             
+        }
+        void small_movement(Arm& arm)
+        {
+            std_msgs::msg::Float64MultiArray cmd;
+            cmd.data = {0.0, 0.0, 0.3, 0.0, 0.3, 0.0};   // joints 3 and 5, same as your manual command
+            arm.vel_pub->publish(cmd);
         }
         
         void operate_arm(Arm& arm, const TempJoint& q,
@@ -572,6 +580,7 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
 
                         TempJoint left_q{state_manager.getLeftJointPositions()};
                         TempJoint right_q{state_manager.getRightJointPositions()};
+
 
 
                         if(left_arm_.trajectory_mode == TrajectoryMode::INACTIVE || right_arm_.trajectory_mode == TrajectoryMode::INACTIVE){
@@ -701,6 +710,26 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
                     const auto previous_right = right_arm_.target_world;
 
                     keyboardJog(left_arm_, left_q, left_keys_);
+
+                    if (left_keys_.s_move) {
+                        small_movement(left_arm_);
+                        small_movement(right_arm_);
+
+                        // keep the targets on the real pose so nothing pulls the arm back afterwards
+                        left_arm_.target_world  = left_arm_.T_world_base  *
+                            forward_kinematics.forward_kinematics_matrix(dh_, left_q);
+                        right_arm_.target_world = right_arm_.T_world_base *
+                            forward_kinematics.forward_kinematics_matrix(dh_, right_q);
+
+                        s_move_was_active_ = true;
+                        break;
+                    }
+                    if (s_move_was_active_) {          
+                        publishZeroVelocity();
+                        s_move_was_active_ = false;
+                        break;
+                    }
+
                     if (left_keys_.home == true){
                         state_manager.set_control_mode(ControlMode::STARTUP);
                     }
