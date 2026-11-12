@@ -188,7 +188,7 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         Arm right_arm_;
 
         bool button_a;
-        bool button_b;
+        bool button_y;
 
         const std::map<std::string, FixedPoses> fixed_target_poses_ = {
             {"home_left", {{0.408, 0.257, 0.651}, Eigen::Quaterniond(0, 1, 0, 0), "home_left"}},
@@ -295,7 +295,7 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
             state_manager.setRightGrip(msg.right.dms);
 
             button_a = msg.right.a;
-            button_b = msg.right.b;
+            button_y = msg.left.y;
             
         }
 
@@ -682,6 +682,7 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
                     operate_arm(right_arm_, right_q, state_manager.getRightTarget(), state_manager.getRightGrip(), right_vr_stamp_);
 
                     if(button_a) state_manager.set_control_mode(ControlMode::TEST);
+                    if(button_y) state_manager.set_control_mode(ControlMode::STARTUP);
                   break;
                 }
                 case ControlMode::DEADMAN:
