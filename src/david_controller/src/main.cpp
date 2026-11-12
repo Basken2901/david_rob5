@@ -66,6 +66,8 @@ struct Arm {
     rclcpp::Time trajectory_start{0, 0, RCL_ROS_TIME};
 
     Clutch clutch;
+
+
     
 };
 
@@ -171,7 +173,7 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         ~ControlNode() { stop_keyboard_control(); }
         
 
-    private: // here goes callback functions and member variables (variables that should only belong to this class and not be accessed by other classes)
+    private: 
         
         //-------------Create object of classes------
         StateManager state_manager;
@@ -184,6 +186,9 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
 
         Arm left_arm_;
         Arm right_arm_;
+
+        bool button_a;
+        bool button_b;
 
         const std::map<std::string, FixedPoses> fixed_target_poses_ = {
             {"home_left", {{0.408, 0.257, 0.651}, Eigen::Quaterniond(0, 1, 0, 0), "home_left"}},
@@ -201,15 +206,13 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         DHParam dh_;
         TempJoint joints_;
         Pose target_pose_;
-        SingularityInfo singularity_info_; // new 
-        double scaling_factor = 1.0; // new //! Im using this one now
+        SingularityInfo singularity_info_; 
+        double scaling_factor = 1.0; 
         double relative_scaling_factor;
         double dms_threshold;
         bool s_move_was_active_ = false;
 
         //-----------Publishers and subcribers-----------
-        //rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr cmd_vel_pub_;
-        //rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr vel_pub_; //Outdated
         rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr left_vel_pub_;
         rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr right_vel_pub_;
         rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr joint_sub_;
@@ -219,9 +222,9 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
 
         //-----------Timers---------------------
         rclcpp::TimerBase::SharedPtr timer_;
-        rclcpp::Time start_time_;//! Test
+        rclcpp::Time start_time_;
         rclcpp::TimerBase::SharedPtr control_timer;
-        rclcpp::Time last_time;
+    
 
 
         //------Thread safety for when running the keyboard command-----------
@@ -290,6 +293,9 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         {
             state_manager.setLeftGrip(msg.left.dms);
             state_manager.setRightGrip(msg.right.dms);
+
+            button_a = msg.right.a;
+            button_b = msg.right.b;
             
         }
 
@@ -319,7 +325,7 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
                 state_manager.setVRHeadState(vr_head_state);
             }
         }
-        bool lookupBase(Arm& arm)
+        bool transform_base(Arm& arm)
         {
             if (arm.base_known) return true;
             try {
@@ -576,8 +582,8 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
                         }
                         if (!fresh) { publishZeroVelocity(); break; }
 
-                        const bool left_ok  = lookupBase(left_arm_);    
-                        const bool right_ok = lookupBase(right_arm_);
+                        const bool left_ok  = transform_base(left_arm_);    
+                        const bool right_ok = transform_base(right_arm_);
                         
                         if (!left_ok || !right_ok) { publishZeroVelocity(); break; }
 
@@ -666,14 +672,16 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
                     }
                     if (!fresh) { publishZeroVelocity(); break; }
 
-                    const bool left_ok  = lookupBase(left_arm_);
-                    const bool right_ok = lookupBase(right_arm_);
+                    const bool left_ok  = transform_base(left_arm_);
+                    const bool right_ok = transform_base(right_arm_);
                     if (!left_ok || !right_ok) { publishZeroVelocity(); break; }
                     TempJoint left_q{state_manager.getLeftJointPositions()};
                     TempJoint right_q{state_manager.getRightJointPositions()};
 
                     operate_arm(left_arm_,  left_q,  state_manager.getLeftTarget(),  state_manager.getLeftGrip(),  left_vr_stamp_);
                     operate_arm(right_arm_, right_q, state_manager.getRightTarget(), state_manager.getRightGrip(), right_vr_stamp_);
+
+                    if(button_a) state_manager.set_control_mode(ControlMode::TEST);
                   break;
                 }
                 case ControlMode::DEADMAN:
@@ -692,8 +700,8 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
                     }
                     if (!fresh) { publishZeroVelocity(); break; }
                     
-                    const bool left_ok  = lookupBase(left_arm_);    
-                    const bool right_ok = lookupBase(right_arm_);
+                    const bool left_ok  = transform_base(left_arm_);    
+                    const bool right_ok = transform_base(right_arm_);
 
                     if (!left_ok || !right_ok) { publishZeroVelocity(); break; }
 

@@ -61,9 +61,9 @@ std::array<double, 6> Controller::dls_controller(const Eigen::MatrixXd& J, doubl
                                                  const Eigen::Matrix4d& T_current, const Eigen::Matrix4d& T_target)
 {
     // 1) error -> desired twist (cap the length, keep the direction)
-    const Eigen::Matrix<double, 6, 1> error_matrix = pose_error(T_current, T_target);
-    Eigen::Vector3d v = dls_.k_lin * error_matrix.head<3>();
-    Eigen::Vector3d w = dls_.k_ang * error_matrix.tail<3>();
+    const Eigen::Matrix<double, 6, 1> error_vector = pose_error(T_current, T_target);
+    Eigen::Vector3d v = dls_.k_lin * error_vector.head<3>();
+    Eigen::Vector3d w = dls_.k_ang * error_vector.tail<3>();
     if (v.norm() > dls_.v_max) v *= dls_.v_max / v.norm();
     if (w.norm() > dls_.w_max) w *= dls_.w_max / w.norm();
     Eigen::Matrix<double, 6, 1> twist;
