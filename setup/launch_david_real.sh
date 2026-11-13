@@ -1,5 +1,5 @@
 #!/bin/bash
-DOCKER_DIR="/home/snekkie/david_rob5/docker"
+DOCKER_DIR="/home/mathias/david_rob5/docker"
 COMPOSE_ARGS="-f docker_real-compose.yml"
 CONTAINER="david_docker_real"
 LAUNCH_CMD="ros2 launch david_launch dual_urdriver.launch.py left_robot_ip:=192.168.57.101 right_robot_ip:=192.168.57.102 launch_rviz:=true"

@@ -19,6 +19,9 @@ find_package(sensor_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_eigen REQUIRED)
 find_package(interface REQUIRED)
+find_package(moveit_core REQUIRED)
+find_package(urdf REQUIRED)
+find_package(srdfdom REQUIRED)
 
 include_directories(include)
 
@@ -38,6 +41,7 @@ add_executable(controller
     src/transformations.cpp
     src/kinematics.cpp
     src/controller.cpp
+    src/arm_clearance_checker.cpp
 )
 
 target_include_directories(controller PUBLIC
@@ -59,6 +63,9 @@ ament_target_dependencies(controller
   tf2_ros
   tf2_eigen
   interface
+  moveit_core
+  urdf
+  srdfdom
 )
 
 install(TARGETS controller

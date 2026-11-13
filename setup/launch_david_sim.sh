@@ -1,5 +1,5 @@
 #!/bin/bash
-DOCKER_DIR="/home/snekkie/david_rob5/docker"
+DOCKER_DIR="/home/mathias/david_rob5/docker"
 COMPOSE_ARGS=""
 CONTAINER=""
 LAUNCH_CMD="ros2 launch david_launch dual_urdriver.launch.py left_use_mock_hardware:=true right_use_mock_hardware:=true launch_rviz:=true"
