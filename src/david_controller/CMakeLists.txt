@@ -19,6 +19,7 @@ find_package(sensor_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_eigen REQUIRED)
 find_package(interface REQUIRED)
+find_package(ur_msgs REQUIRED) 
 
 include_directories(include)
 
@@ -59,6 +60,7 @@ ament_target_dependencies(controller
   tf2_ros
   tf2_eigen
   interface
+  ur_msgs
 )
 
 install(TARGETS controller

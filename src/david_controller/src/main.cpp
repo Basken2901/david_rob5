@@ -28,6 +28,7 @@
 #include "interface/msg/vr_input.hpp"
 #include <std_msgs/msg/float64_multi_array.hpp>
 #include <sensor_msgs/msg/joint_state.hpp>
+#include "ur_msgs/srv/set_io.hpp"
 
 #include "sensor_msgs/msg/joint_state.hpp"
 #include "std_msgs/msg/bool.hpp"
@@ -66,6 +67,10 @@ struct Arm {
     rclcpp::Time trajectory_start{0, 0, RCL_ROS_TIME};
 
     Clutch clutch;
+
+    rclcpp::Client<ur_msgs::srv::SetIO>::SharedPtr io_client;
+    bool gripper_closed = false;
+    bool prev_trigger = false;
 
 
     
@@ -136,6 +141,9 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         right_vel_pub_ = create_publisher<std_msgs::msg::Float64MultiArray>(
             "/right_forward_velocity_controller/commands", 10);
 
+        left_arm_.io_client  = create_client<ur_msgs::srv::SetIO>("/left_io_and_status_controller/set_io");
+        right_arm_.io_client = create_client<ur_msgs::srv::SetIO>("/right_io_and_status_controller/set_io");
+
         tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
         tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
@@ -187,12 +195,18 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         Arm left_arm_;
         Arm right_arm_;
 
-        bool button_a;
-        bool button_y;
+        bool button_a = false;
+        bool button_y = false;
+        bool button_b = false;
+        bool right_trigger_ = false;
+        bool left_trigger_ = false;
+
+        static constexpr int8_t GRIPPER_CLOSE_PIN = 16;   
+        static constexpr int8_t GRIPPER_OPEN_PIN  = 17; 
 
         const std::map<std::string, FixedPoses> fixed_target_poses_ = {
-            {"home_left", {{0.408, 0.257, 0.651}, Eigen::Quaterniond(0, 1, 0, 0), "home_left"}},
-            {"home_right",  {{0.380, -0.358, 0.599}, Eigen::Quaterniond(0, 1, 0, 0), "home_right"}}
+            {"home_left", {{-0.636, 0.184, 0.788}, Eigen::Quaterniond(0, 1, 0, 0), "home_left"}},
+            {"home_right",  {{-0.619, -0.211, 0.789}, Eigen::Quaterniond(0, 1, 0, 0), "home_right"}}
         };
 
         Pose right_idle_;
@@ -296,6 +310,10 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
 
             button_a = msg.right.a;
             button_y = msg.left.y;
+
+            right_trigger_ = msg.right.trigger;
+            left_trigger_  = msg.left.trigger;
+
             
         }
 
@@ -352,6 +370,38 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
             cmd.data.assign(6, 0.0);
             left_vel_pub_->publish(cmd);
             right_vel_pub_->publish(cmd);
+        }
+
+        void set_gripper(Arm& arm, bool close)
+        {
+            if (!arm.io_client->service_is_ready()) {
+                RCLCPP_WARN(get_logger(), "%s gripper: set_io service not available", arm.name.c_str());
+                return;
+            }
+            const int8_t pin_off = close ? GRIPPER_OPEN_PIN  : GRIPPER_CLOSE_PIN;
+            const int8_t pin_on  = close ? GRIPPER_CLOSE_PIN : GRIPPER_OPEN_PIN;
+
+            auto make_req = [](int8_t pin, float state) {
+                auto req = std::make_shared<ur_msgs::srv::SetIO::Request>();
+                req->fun   = ur_msgs::srv::SetIO::Request::FUN_SET_DIGITAL_OUT;
+                req->pin   = pin;
+                req->state = state;
+                return req;
+            };
+
+            // Turn the other pin off first, and only then this one on, so both are never on together
+            auto client = arm.io_client;
+            auto logger = get_logger();
+            const std::string name = arm.name;
+            client->async_send_request(make_req(pin_off, 0.0f),
+                [client, logger, name, pin_on, make_req](rclcpp::Client<ur_msgs::srv::SetIO>::SharedFuture f) {
+                    if (!f.get()->success) {
+                        RCLCPP_WARN(logger, "%s gripper: could not switch output off", name.c_str());
+                        return;
+                    }
+                    client->async_send_request(make_req(pin_on, 1.0f));
+                });
+            RCLCPP_INFO(logger, "%s gripper: %s", name.c_str(), close ? "close" : "open");
         }
         //static std::string fmt(const std::array<double, 6>& a) //Help to see what we publish
         //{
@@ -683,6 +733,12 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
 
                     if(button_a) state_manager.set_control_mode(ControlMode::TEST);
                     if(button_y) state_manager.set_control_mode(ControlMode::STARTUP);
+                                       
+                    if (right_trigger_ && !right_arm_.prev_trigger) {
+                        right_arm_.gripper_closed = !right_arm_.gripper_closed;
+                        set_gripper(right_arm_, right_arm_.gripper_closed);
+                    }
+                    right_arm_.prev_trigger = right_trigger_;
                   break;
                 }
                 case ControlMode::DEADMAN:
