@@ -22,6 +22,8 @@ constexpr std::array<const char*, 6> ARM_JOINTS{
     "wrist_1_joint", "wrist_2_joint", "wrist_3_joint"};
 
 constexpr double MIN_CLEARANCE_METERS = 0.05;
+constexpr double SLOW_CLEARANCE_METERS = 0.10;
+constexpr double SLOW_VELOCITY_SCALE = 0.5;
 constexpr auto MAX_CHECK_AGE = std::chrono::milliseconds(100);
 }
 
@@ -105,6 +107,11 @@ bool ArmClearanceChecker::motion_allowed() const
            std::chrono::steady_clock::now() - last_valid_check_ < MAX_CHECK_AGE;
 }
 
+double ArmClearanceChecker::velocity_scale() const
+{
+    return motion_allowed() ? velocity_scale_ : 0.0;
+}
+
 void ArmClearanceChecker::check_clearance(
     const sensor_msgs::msg::JointState& msg)
 {
@@ -179,9 +186,11 @@ void ArmClearanceChecker::check_clearance(
     }
 
     last_valid_check_ = now;
+    velocity_scale_ = closest.distance < SLOW_CLEARANCE_METERS
+        ? SLOW_VELOCITY_SCALE : 1.0;
     clearance_safe_ = true;
     RCLCPP_INFO_THROTTLE(node_.get_logger(), *node_.get_clock(), 500,
-                "%.2f cm between %s and %s (%.2f ms)",
+                "%.2f cm between %s and %s (%.2f ms, velocity scale %.2f)",
                 closest.distance * 100.0, closest.link_names[0].c_str(),
-                closest.link_names[1].c_str(), elapsed_ms);
+                closest.link_names[1].c_str(), elapsed_ms, velocity_scale_);
 }

@@ -373,6 +373,15 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         //                  a[0], a[1], a[2], a[3], a[4], a[5]);
         //    return buf;
         //}
+        void publishMotionVelocity(Arm& arm, std_msgs::msg::Float64MultiArray& cmd)
+        {
+            const double scale = arm_clearance_checker_
+                ? arm_clearance_checker_->velocity_scale() : 1.0;
+            for (double& velocity : cmd.data)
+                velocity = scale == 0.0 ? 0.0 : velocity * scale;
+            arm.vel_pub->publish(cmd);
+        }
+
         bool compute_velocity_publisher(Arm& arm, const TempJoint& q)
         {
             if (!arm.target_world) { publishZero(arm); return true; }
@@ -394,7 +403,7 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
             
             std_msgs::msg::Float64MultiArray cmd;
             cmd.data.assign(vel_scaled.begin(), vel_scaled.end());
-            arm.vel_pub->publish(cmd);
+            publishMotionVelocity(arm, cmd);
             return true;
         }
 
@@ -411,7 +420,7 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         
             std_msgs::msg::Float64MultiArray cmd;
             cmd.data.assign(qdot.begin(), qdot.end());
-            arm.vel_pub->publish(cmd);
+            publishMotionVelocity(arm, cmd);
         }
 
         void track_target(Arm& arm, const TempJoint& q){
@@ -519,7 +528,7 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         {
             std_msgs::msg::Float64MultiArray cmd;
             cmd.data = {0.0, 0.0, 0.3, 0.0, 0.3, 0.0};   // joints 3 and 5, same as your manual command
-            arm.vel_pub->publish(cmd);
+            publishMotionVelocity(arm, cmd);
         }
         
         void operate_arm(Arm& arm, const TempJoint& q,
