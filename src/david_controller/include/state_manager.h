@@ -32,6 +32,13 @@ enum class ControlMode {
     TEST = 4
 };
 
+struct Gripper {
+    static constexpr std::array<int, 2> OPEN = {0,1};
+    static constexpr std::array<int, 2> CLOSED = {1,0};
+    static constexpr std::array<int, 2> BREAK_1 = {1,1};
+    static constexpr std::array<int, 2> BREAK_0 = {0,0};
+};
+
 struct PGains {
     double Kp = 0.251;
 };

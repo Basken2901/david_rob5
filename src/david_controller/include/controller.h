@@ -7,6 +7,16 @@
 #include "state_manager.h"
 #include "kinematics.h"
 
+struct DlsGains {
+    double k_lin      = 3.0;   // [1/s]
+    double k_ang      = 3.0;   // [1/s]
+    double v_max      = 0.25;  // [m/s]
+    double w_max      = 1.0;   // [rad/s]
+    double eps        = 0.08;  // sigma_min where damping starts
+    double lambda_max = 0.08;  // damping at sigma_min = 0
+    double qdot_max   = 0.5;   // [rad/s]
+};
+
 class Controller
 {
     public:
@@ -18,6 +28,11 @@ class Controller
                                           const Eigen::Matrix4d& C,
                                           double k,
                                           const Eigen::Matrix3d& X);
+        Eigen::Matrix<double, 6, 1> pose_error(const Eigen::Matrix4d& T_current,
+                                                   const Eigen::Matrix4d& T_target) const;
+        std::array<double, 6> dls_controller(const Eigen::MatrixXd& Jacobian, double sigma_min,
+                                                 const Eigen::Matrix4d& T_current, const Eigen::Matrix4d& T_target);
     private:
             PGains p_gains_;
+            DlsGains dls_;
 };

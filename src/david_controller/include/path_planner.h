@@ -53,10 +53,10 @@ class PathPlanner
       mutable std::recursive_mutex planner_mutex_;
       
       float current_angular_velocity_ = 0.15; //!! MIGHT HAVE TO CHANGE ALL THESE, PLUS MOVE TO BETTER PLACE
-      float min_linear_velocity_ = 0.3;        
-      float min_angular_velocity_ = 0.3;       
-      float max_linear_velocity_ = 0.8;        
-      float max_angular_velocity_ = 0.8;  
+      float min_linear_velocity_ = 0.1;        
+      float min_angular_velocity_ = 0.1;       
+      float max_linear_velocity_ = 0.5;        
+      float max_angular_velocity_ = 0.5;  
 
       double total_time;
       TrajectorySegment segments[3]; 
