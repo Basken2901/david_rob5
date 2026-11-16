@@ -24,12 +24,12 @@ export RMW_IMPLEMENTATION="${RMW_IMPLEMENTATION:-rmw_fastrtps_cpp}"
 # shellcheck source=/dev/null
 source /opt/ros/jazzy/setup.bash
 if [[ ! -f "$WS_DIR/install/setup.bash" ]]; then
-    echo "Build onboard: cd $WS_DIR && colcon build --packages-select david_sensor" >&2
+    echo "Build onboard: cd $WS_DIR && colcon build --packages-select david_launch" >&2
     exit 1
 fi
 # shellcheck source=/dev/null
 source "$WS_DIR/install/setup.bash"
 
-exec ros2 launch david_sensor dual_rgbd.launch.py \
+exec ros2 launch david_launch dual_rgbd.launch.py \
     left_serial:="$DAVID_LEFT_SERIAL" \
     right_serial:="$DAVID_RIGHT_SERIAL"

@@ -1,7 +1,7 @@
 # DAVID dual RGB-D cameras
 
 The physical left and right RealSense cameras are attached to **DAVID's onboard PC**.
-This package uses the existing ROS 2 RealSense wrapper, which can publish colour,
+The camera launch file is in `david_launch/launch/dual_rgbd.launch.py` and uses the existing ROS 2 RealSense wrapper, which can publish colour,
 aligned depth, CameraInfo, RGB-D and colour-textured PointCloud2 topics. There is
 no reason to write a separate point-cloud conversion publisher for the first pass.
 
@@ -13,7 +13,7 @@ of the `david_rob5` workspace on the onboard PC.
 
 From that onboard workspace:
 ```bash
-colcon build --packages-select david_sensor
+colcon build --packages-select david_launch
 bash setup/onboard/install_camera_service.sh
 ```
 
