@@ -42,6 +42,7 @@ using namespace std::chrono_literals;
 #include "kinematics.h"
 #include "transformations.h"
 #include "controller.h"
+#include "arm_clearance_checker.h"
 
 struct Clutch {
     bool engaged = false;
@@ -147,6 +148,10 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         state_manager.set_control_mode(ControlMode::TEST);
         
         //StateManagers
+        if (declare_parameter<bool>("collision_check_enabled", true))
+        {
+            arm_clearance_checker_ = std::make_unique<ArmClearanceChecker>(*this);
+        }
 
         //Publishers
         left_vel_pub_ = create_publisher<std_msgs::msg::Float64MultiArray>(
@@ -251,6 +256,7 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
         std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
         rclcpp::Subscription<interface::msg::VRInput>::SharedPtr vr_sub_;
+        std::unique_ptr<ArmClearanceChecker> arm_clearance_checker_;
 
         //-----------Timers---------------------
         rclcpp::TimerBase::SharedPtr timer_;
@@ -275,6 +281,13 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         //--------------------CallBacks---------------
         void joint_callback(const sensor_msgs::msg::JointState& msg)
         {
+            if (arm_clearance_checker_)
+            {
+                arm_clearance_checker_->check_clearance(msg);
+                if (!arm_clearance_checker_->motion_allowed())
+                    publishZeroVelocity();
+            }
+
             sensor_msgs::msg::JointState left_msg;
             sensor_msgs::msg::JointState right_msg;
             left_msg.header = msg.header;
@@ -448,6 +461,15 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         //                  a[0], a[1], a[2], a[3], a[4], a[5]);
         //    return buf;
         //}
+        void publishMotionVelocity(Arm& arm, std_msgs::msg::Float64MultiArray& cmd)
+        {
+            const double scale = arm_clearance_checker_
+                ? arm_clearance_checker_->velocity_scale() : 1.0;
+            for (double& velocity : cmd.data)
+                velocity = scale == 0.0 ? 0.0 : velocity * scale;
+            arm.vel_pub->publish(cmd);
+        }
+
         bool compute_velocity_publisher(Arm& arm, const TempJoint& q)
         {
             if (!arm.target_world) { publishZero(arm); return true; }
@@ -470,7 +492,7 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
 
             std_msgs::msg::Float64MultiArray cmd;
             cmd.data.assign(vel_scaled.begin(), vel_scaled.end());
-            arm.vel_pub->publish(cmd);
+            publishMotionVelocity(arm, cmd);
             return true;
         }
 
@@ -493,7 +515,7 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         
             std_msgs::msg::Float64MultiArray cmd;
             cmd.data.assign(qdot.begin(), qdot.end());
-            arm.vel_pub->publish(cmd);
+            publishMotionVelocity(arm, cmd);
         }
 
         void track_target(Arm& arm, const TempJoint& q){
@@ -601,7 +623,7 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         {
             std_msgs::msg::Float64MultiArray cmd;
             cmd.data = {0.0, 0.0, 0.3, 0.0, 0.3, 0.0};   // joints 3 and 5, same as your manual command
-            arm.vel_pub->publish(cmd);
+            publishMotionVelocity(arm, cmd);
         }
         
         void operate_arm(Arm& arm, const TempJoint& q,
@@ -667,6 +689,22 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
 
         void control_loop()
         {
+            if (arm_clearance_checker_ && !arm_clearance_checker_->motion_allowed())
+            {
+                publishZeroVelocity();
+                // Discard old targets so they cannot pull the arms back after recovery.
+                for (Arm* arm : {&left_arm_, &right_arm_})
+                {
+                    arm->target_world.reset();
+                    arm->last_valid.reset();
+                    arm->clutch.engaged = false;
+                    arm->trajectory_mode = TrajectoryMode::INACTIVE;
+                }
+                RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 1000,
+                    "Both arms stopped: clearance <= 5 cm or clearance data unavailable/stale");
+                return;
+            }
+
             auto now = get_clock()->now();
 
             const double time = (this->now() - start_time_).seconds();       
