@@ -28,6 +28,7 @@
 #include "interface/msg/vr_input.hpp"
 #include <std_msgs/msg/float64_multi_array.hpp>
 #include <sensor_msgs/msg/joint_state.hpp>
+#include "ur_msgs/srv/set_io.hpp"
 
 #include "sensor_msgs/msg/joint_state.hpp"
 #include "std_msgs/msg/bool.hpp"
@@ -56,6 +57,7 @@ struct Arm {
 
     Eigen::Matrix4d T_world_base = Eigen::Matrix4d::Identity();
     Eigen::Matrix4d T_base_world = Eigen::Matrix4d::Identity();
+    Eigen::Matrix3d controller_to_tool = Eigen::Matrix3d::Identity();   // controller axes -> tool axes
     bool base_known = false;
 
     std::optional<Eigen::Matrix4d> target_world;   
@@ -67,6 +69,12 @@ struct Arm {
     rclcpp::Time trajectory_start{0, 0, RCL_ROS_TIME};
 
     Clutch clutch;
+    rclcpp::Time last_log{0, 0, RCL_ROS_TIME};
+    
+
+    rclcpp::Client<ur_msgs::srv::SetIO>::SharedPtr io_client;
+    bool gripper_closed = false;
+    bool prev_trigger = false;
 
 
     
@@ -113,16 +121,26 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         this->declare_parameter<double>("p_controller.kp", 1.0);
         this->declare_parameter<double>("dms_threshold", 0.5);
         this->declare_parameter<double>("relative_scaling_factor", 0.5);
+        this->declare_parameter<double>("rotation_scaling_factor", 0.5); 
         this->declare_parameter<double>("tool_offset_z", 0.15);
-
+        this->declare_parameter<std::string>("rotation_mapping", "tool");    // "tool" or "world" (old behaviour)
+        this->declare_parameter<std::vector<double>>("left_controller_twist_axis",  {0.0, 0.0, -1.0});
+        this->declare_parameter<std::vector<double>>("right_controller_twist_axis", {0.0, 0.0, -1.0});
+        this->declare_parameter<double>("left_tool_twist_offset_deg",  0.0);
+        this->declare_parameter<double>("right_tool_twist_offset_deg", 0.0);
+        
         p_gains.Kp = this->get_parameter("p_controller.kp").as_double();
         dms_threshold = this->get_parameter("dms_threshold").as_double();
         relative_scaling_factor = this->get_parameter("relative_scaling_factor").as_double();
+        rotation_scaling_factor = this->get_parameter("rotation_scaling_factor").as_double();
         dh_.d[5] = 0.0996 + this->get_parameter("tool_offset_z").as_double(); 
+        rotation_mapping_ = this->get_parameter("rotation_mapping").as_string() == "world"
+                                ? RotationMapping::WORLD : RotationMapping::TOOL;
 
         std::cout << "Controller Gains = " << p_gains.Kp << std::endl;
         std::cout << "Dead Man Switch Threshold = " << dms_threshold << std::endl;
         std::cout << "Teleoperation Relative Scaling = " << relative_scaling_factor << std::endl;
+        std::cout << "Teleoperation Rotation Scaling = " << rotation_scaling_factor << std::endl;
 
         controller.set_gains(
             p_gains
@@ -140,6 +158,12 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
             "/left_forward_velocity_controller/commands", 10);
         right_vel_pub_ = create_publisher<std_msgs::msg::Float64MultiArray>(
             "/right_forward_velocity_controller/commands", 10);
+
+        left_arm_.controller_to_tool  = make_controller_to_tool("left");
+        right_arm_.controller_to_tool = make_controller_to_tool("right");
+
+        left_arm_.io_client  = create_client<ur_msgs::srv::SetIO>("/left_io_and_status_controller/set_io");
+        right_arm_.io_client = create_client<ur_msgs::srv::SetIO>("/right_io_and_status_controller/set_io");
 
         tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
         tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
@@ -192,12 +216,18 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         Arm left_arm_;
         Arm right_arm_;
 
-        bool button_a;
-        bool button_y;
+        bool button_a = false;
+        bool button_y = false;
+        bool button_b = false;
+        bool right_trigger_ = false;
+        bool left_trigger_ = false;
+
+        static constexpr int8_t GRIPPER_CLOSE_PIN = 16;   
+        static constexpr int8_t GRIPPER_OPEN_PIN  = 17; 
 
         const std::map<std::string, FixedPoses> fixed_target_poses_ = {
-            {"home_left", {{0.408, 0.257, 0.651}, Eigen::Quaterniond(0, 1, 0, 0), "home_left"}},
-            {"home_right",  {{0.380, -0.358, 0.599}, Eigen::Quaterniond(0, 1, 0, 0), "home_right"}}
+            {"home_left", {{-0.636, 0.184, 0.788}, Eigen::Quaterniond(0, 1, 0, 0), "home_left"}},
+            {"home_right",  {{-0.619, -0.211, 0.789}, Eigen::Quaterniond(0, 1, 0, 0), "home_right"}}
         };
 
         Pose right_idle_;
@@ -214,6 +244,8 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         SingularityInfo singularity_info_; 
         double scaling_factor = 1.0; 
         double relative_scaling_factor;
+        double rotation_scaling_factor;
+        RotationMapping rotation_mapping_ = RotationMapping::TOOL;
         double dms_threshold;
         bool s_move_was_active_ = false;
 
@@ -309,6 +341,10 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
 
             button_a = msg.right.a;
             button_y = msg.left.y;
+
+            right_trigger_ = msg.right.trigger;
+            left_trigger_  = msg.left.trigger;
+
             
         }
 
@@ -352,6 +388,26 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
             }
             return arm.base_known;
         }
+        Eigen::Matrix3d make_controller_to_tool(const std::string& side)
+        {
+            const auto p = this->get_parameter(side + "_controller_twist_axis").as_double_array();
+            const double offset_deg = this->get_parameter(side + "_tool_twist_offset_deg").as_double();
+
+            Eigen::Vector3d axis = -Eigen::Vector3d::UnitZ();
+            if (p.size() == 3 && Eigen::Vector3d(p[0], p[1], p[2]).norm() > 1e-6) {
+                axis = Eigen::Vector3d(p[0], p[1], p[2]).normalized();
+            } else {
+                RCLCPP_WARN(get_logger(), "%s_controller_twist_axis needs 3 numbers (not all zero), using [0, 0, -1]",
+                            side.c_str());
+            }
+            // 1) turn the controller's twist axis onto tool z (joint 6)
+            // 2) spin about tool z so the tilt directions line up as well
+            const Eigen::Matrix3d align =
+                Eigen::Quaterniond::FromTwoVectors(axis, Eigen::Vector3d::UnitZ()).toRotationMatrix();
+            const Eigen::Matrix3d spin =
+                Eigen::AngleAxisd(offset_deg * M_PI / 180.0, Eigen::Vector3d::UnitZ()).toRotationMatrix();
+            return spin * align;
+        }
         void publishZero(Arm& arm)
         {
             std_msgs::msg::Float64MultiArray cmd;
@@ -365,6 +421,38 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
             cmd.data.assign(6, 0.0);
             left_vel_pub_->publish(cmd);
             right_vel_pub_->publish(cmd);
+        }
+
+        void set_gripper(Arm& arm, bool close)
+        {
+            if (!arm.io_client->service_is_ready()) {
+                RCLCPP_WARN(get_logger(), "%s gripper: set_io service not available", arm.name.c_str());
+                return;
+            }
+            const int8_t pin_off = close ? GRIPPER_OPEN_PIN  : GRIPPER_CLOSE_PIN;
+            const int8_t pin_on  = close ? GRIPPER_CLOSE_PIN : GRIPPER_OPEN_PIN;
+
+            auto make_req = [](int8_t pin, float state) {
+                auto req = std::make_shared<ur_msgs::srv::SetIO::Request>();
+                req->fun   = ur_msgs::srv::SetIO::Request::FUN_SET_DIGITAL_OUT;
+                req->pin   = pin;
+                req->state = state;
+                return req;
+            };
+
+            // Turn the other pin off first, and only then this one on, so both are never on together
+            auto client = arm.io_client;
+            auto logger = get_logger();
+            const std::string name = arm.name;
+            client->async_send_request(make_req(pin_off, 0.0f),
+                [client, logger, name, pin_on, make_req](rclcpp::Client<ur_msgs::srv::SetIO>::SharedFuture f) {
+                    if (!f.get()->success) {
+                        RCLCPP_WARN(logger, "%s gripper: could not switch output off", name.c_str());
+                        return;
+                    }
+                    client->async_send_request(make_req(pin_on, 1.0f));
+                });
+            RCLCPP_INFO(logger, "%s gripper: %s", name.c_str(), close ? "close" : "open");
         }
         //static std::string fmt(const std::array<double, 6>& a) //Help to see what we publish
         //{
@@ -400,7 +488,8 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
             auto J = singularity_prevention.jacobian_computation(dh_, q);
             singularity_info_ = singularity_prevention.compute_singularity_info(J);
             auto vel_scaled = singularity_prevention.velocity_scaler(singularity_info_, vel);
-            
+            vel_scaled = controller.joint_limit_guard(q.theta, vel_scaled);
+
             std_msgs::msg::Float64MultiArray cmd;
             cmd.data.assign(vel_scaled.begin(), vel_scaled.end());
             publishMotionVelocity(arm, cmd);
@@ -416,7 +505,13 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
             const Eigen::MatrixXd J     = singularity_prevention.jacobian_computation(dh_, q);
             const SingularityInfo info  = singularity_prevention.compute_singularity_info(J);
         
-            const auto qdot = controller.dls_controller(J, info.sigma_min, target_current, target_base);
+            int limiting = -1;
+            const auto qdot = controller.joint_limit_guard(
+                q.theta, controller.dls_controller(J, info.sigma_min, target_current, target_base), &limiting);
+            if (limiting >= 0)
+                RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 1000,
+                    "%s: joint %d is at %.0f deg, close to its limit. Slowing/stopped: rotate back the other way",
+                    arm.name.c_str(), limiting + 1, q.theta[limiting] * 180.0 / M_PI);
         
             std_msgs::msg::Float64MultiArray cmd;
             cmd.data.assign(qdot.begin(), qdot.end());
@@ -557,14 +652,24 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
             const auto previous = arm.target_world;
             if (arm.clutch.engaged)
                 arm.target_world = controller.calculate_relative_target(arm.clutch.A0, arm.clutch.C0, C,
-                                                                        relative_scaling_factor,
-                                                                        Eigen::Matrix3d::Identity());
+                                                        relative_scaling_factor,
+                                                        rotation_scaling_factor,
+                                                        Eigen::Matrix3d::Identity(),
+                                                        arm.controller_to_tool,
+                                                        rotation_mapping_);
             compute_dls_publisher(arm, q);
             
-            RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 500,
-                "%s: dms=%.2f fresh=%d engaged=%d target=(%.3f, %.3f, %.3f)",
-                arm.name.c_str(), dms, fresh, arm.clutch.engaged,
-                (*arm.target_world)(0,3), (*arm.target_world)(1,3), (*arm.target_world)(2,3));
+            if ((this->now() - arm.last_log).seconds() >= 0.5) {
+                arm.last_log = this->now();
+                
+                const Eigen::Matrix3d R_hand = arm.clutch.C0.block<3,3>(0,0).transpose() * C.block<3,3>(0,0);
+                const Eigen::AngleAxisd hand(R_hand);
+                RCLCPP_INFO(get_logger(),
+                    "%s: dms=%.2f fresh=%d engaged=%d target=(%.3f, %.3f, %.3f) | hand turned %.0f deg about controller axis [%.2f, %.2f, %.2f]",
+                    arm.name.c_str(), dms, fresh, arm.clutch.engaged,
+                    (*arm.target_world)(0,3), (*arm.target_world)(1,3), (*arm.target_world)(2,3),
+                    hand.angle() * 180.0 / M_PI, hand.axis().x(), hand.axis().y(), hand.axis().z());
+            }
         }
         //------------------------------------Control loop----------------------------
 
@@ -701,7 +806,7 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
                 {   
                     
                     RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 500,
-                        "Right current: OPERATION MODE");
+                        "OPERATION MODE!");
                     bool fresh;
                     {
                         std::lock_guard<std::mutex> lock(main_joint_positions_mutex_);
@@ -721,6 +826,12 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
 
                     if(button_a) state_manager.set_control_mode(ControlMode::TEST);
                     if(button_y) state_manager.set_control_mode(ControlMode::STARTUP);
+                                       
+                    if (right_trigger_ && !right_arm_.prev_trigger) {
+                        right_arm_.gripper_closed = !right_arm_.gripper_closed;
+                        set_gripper(right_arm_, right_arm_.gripper_closed);
+                    }
+                    right_arm_.prev_trigger = right_trigger_;
                   break;
                 }
                 case ControlMode::DEADMAN:

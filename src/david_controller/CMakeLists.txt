@@ -19,6 +19,7 @@ find_package(sensor_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_eigen REQUIRED)
 find_package(interface REQUIRED)
+find_package(ur_msgs REQUIRED) 
 find_package(moveit_core REQUIRED)
 find_package(urdf REQUIRED)
 find_package(srdfdom REQUIRED)
@@ -63,6 +64,7 @@ ament_target_dependencies(controller
   tf2_ros
   tf2_eigen
   interface
+  ur_msgs
   moveit_core
   urdf
   srdfdom

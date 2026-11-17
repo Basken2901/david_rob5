@@ -22,24 +22,46 @@ std::array<double, 6> Controller::p_controller(const std::array<double, 6>& curr
     return vel;
 }
 
-
+namespace {
+// rotation vector (axis * angle, rad) -> rotation matrix
+Eigen::Matrix3d rotvec_to_matrix(const Eigen::Vector3d& r)
+{
+    const double angle = r.norm();
+    if (angle < 1e-12) return Eigen::Matrix3d::Identity();
+    return Eigen::AngleAxisd(angle, r / angle).toRotationMatrix();
+}
+} 
 
 Eigen::Matrix4d Controller::calculate_relative_target(const Eigen::Matrix4d& A0,
                                                       const Eigen::Matrix4d& C0,
                                                       const Eigen::Matrix4d& C,
                                                       double k,
-                                                      const Eigen::Matrix3d& X)
+                                                      double k_rot,
+                                                      const Eigen::Matrix3d& X,
+                                                      const Eigen::Matrix3d& controller_to_tool,
+                                                      RotationMapping mapping)
 {
     // How far the hand moved since the latch, converted to robot/world axes
     const Eigen::Vector3d dp = X * (C.block<3,1>(0,3) - C0.block<3,1>(0,3));
 
-    // How much the hand rotated since the latch, converted the same way
-    const Eigen::Matrix3d dR_vr = C.block<3,3>(0,0) * C0.block<3,3>(0,0).transpose();
-    const Eigen::Matrix3d dR    = X * dR_vr * X.transpose();
+    Eigen::Matrix3d R_target;
+    if (mapping == RotationMapping::TOOL) {
+        // Hand rotation in the controller's OWN axes, applied about the tool's own axes.
+        // controller_to_tool maps your twist axis onto tool z (= joint 6).
+        const Eigen::Matrix3d dR_local = C0.block<3,3>(0,0).transpose() * C.block<3,3>(0,0);
+        const Eigen::AngleAxisd d(dR_local);
+        const Eigen::Matrix3d dR = rotvec_to_matrix(k_rot * d.angle() * (controller_to_tool * d.axis()));
+        R_target = A0.block<3,3>(0,0) * dR;      // right-multiply = about the tool's axes
+    } else {
+        // Old behaviour: hand rotation in world axes, applied about world axes
+        const Eigen::Matrix3d dR_vr = C.block<3,3>(0,0) * C0.block<3,3>(0,0).transpose();
+        const Eigen::AngleAxisd d(dR_vr);
+        const Eigen::Matrix3d dR = rotvec_to_matrix(k_rot * d.angle() * (X * d.axis()));
+        R_target = dR * A0.block<3,3>(0,0);      // left-multiply = about the world axes
+    }
 
     Eigen::Matrix4d T = Eigen::Matrix4d::Identity();
-    T.block<3,3>(0,0) = dR * A0.block<3,3>(0,0);
-    //T.block<3,3>(0,0) = A0.block<3,3>(0,0);   
+    T.block<3,3>(0,0) = R_target;
     T.block<3,1>(0,3) = A0.block<3,1>(0,3) + k * dp;
     return T;
 }
@@ -91,5 +113,25 @@ std::array<double, 6> Controller::dls_controller(const Eigen::MatrixXd& J, doubl
     }
     if (worst > dls_.qdot_max)
         for (auto& x : qdot) x *= dls_.qdot_max / worst;
+    return qdot;
+}
+std::array<double, 6> Controller::joint_limit_guard(const std::array<double, 6>& q,
+                                                    std::array<double, 6> qdot,
+                                                    int* limiting_joint) const
+{
+    // Slow everything down when a joint moves towards its limit, and stop LIMIT_STOP before it.
+    // Moving away from a limit is never slowed, so the operator can always rotate back out.
+    double scale = 1.0;
+    int worst = -1;
+    for (int i = 0; i < 6; ++i) {
+        double room;                                   // how far joint i can still go in the commanded direction
+        if (qdot[i] > 0.0)      room = Q_MAX[i] - q[i];
+        else if (qdot[i] < 0.0) room = q[i] - Q_MIN[i];
+        else continue;
+        const double s = std::clamp((room - LIMIT_STOP) / (LIMIT_SLOW - LIMIT_STOP), 0.0, 1.0);
+        if (s < scale) { scale = s; worst = i; }
+    }
+    for (auto& v : qdot) v *= scale;                   // all joints together, so the tool keeps its direction
+    if (limiting_joint) *limiting_joint = worst;
     return qdot;
 }

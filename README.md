@@ -102,7 +102,9 @@ ros2 service call /io_and_status_controller/set_io ur_msgs/srv/SetIO "{fun: 1, p
 
 ros2 control switch_controllers   --deactivate scaled_joint_trajectory_controller   --activate forward_velocity_controller
 
-ros2 launch david_launch dual_urdriver.launch.py   left_robot_ip:=192.168.57.101 right_robot_ip:=192.168.57.102 launch_rviz:=true
+```
+ros2 launch david_launch dual_urdriver.launch.py   left_robot_ip:=192.168.57.101 right_robot_ip:=192.168.57.102 launch_rviz:=false
+```
 
 ### Connection to the physcial robot (SSH connection)
 1. Connect to the TP-LINK_2.4GHz_FFD51D Wifi
@@ -116,7 +118,7 @@ DNS: 8.8.8.8
 
 3. SSH into the PC
 ```
-ssh gr141@192.168.0.100 (251 now?)
+ssh gr141@192.168.0.251
 ```
 4. To logout
 ```
@@ -137,7 +139,6 @@ realpath src/david_sim/exts
 XR_RUNTIME_JSON="$HOME/.steam/debian-installation/steamapps/common/SteamVR/steamxr_linux64.json" \
 ./isaac-sim.xr.vr.sh \
   --ext-folder "/absolute/path/from/realpath" \
-  --enable vr.ros.publisher
 ```
 cd ~/ROB5/david_rob5/setup
 chmod +x install_david_launcher.sh
