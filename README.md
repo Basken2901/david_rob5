@@ -107,7 +107,7 @@ ros2 launch david_launch dual_urdriver.launch.py   left_robot_ip:=192.168.57.101
 ```
 
 ### Connection to the physcial robot (SSH connection)
-1. Connect to the TP-LINK_2.4GHz_FFD51D Wifi
+1. Connect to the OmniLAB Wifi 
 2. Change the IPV4 methods to manual
 
 When changed to manual update these addresses
@@ -126,19 +126,22 @@ exit
 ```
 This launches the MoveIT planner in another Rviz window
 
-### To launch IsaacSim with steamVR and publishers
+### To launch IsaacSim with steamVR and publishers on real robot
 
 1. Launch steamVR through steam
 2. Connect vr headset to steamapp and link to host pc
-3. Get the correct root from David workspace root
+3. In a terminal, run these commands before launching Isaac:
 ```
-realpath src/david_sim/exts
+export ROS_DOMAIN_ID=1
 ```
-4. Run the command, replacing "/absolute/path/from/realpath" with the workspace path
+Sometimes, sourcing the david install folder is required. In this case, find your path to the install folder:
 ```
-XR_RUNTIME_JSON="$HOME/.steam/debian-installation/steamapps/common/SteamVR/steamxr_linux64.json" \
-./isaac-sim.xr.vr.sh \
-  --ext-folder "/absolute/path/from/realpath" \
+source "$HOME/david_rob5/install/setup.bash"
+```
+
+3. Launch IsaacSim with the following launch argument:
+```
+XR_RUNTIME_JSON="$HOME/.steam/debian-installation/steamapps/common/SteamVR/steamxr_linux64.json" ./isaac-sim.xr.vr.sh
 ```
 cd ~/ROB5/david_rob5/setup
 chmod +x install_david_launcher.sh
