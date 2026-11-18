@@ -226,8 +226,8 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         static constexpr int8_t GRIPPER_OPEN_PIN  = 17; 
 
         const std::map<std::string, FixedPoses> fixed_target_poses_ = {
-            {"home_left", {{-0.636, 0.184, 0.788}, Eigen::Quaterniond(0, 1, 0, 0), "home_left"}},
-            {"home_right",  {{-0.619, -0.211, 0.789}, Eigen::Quaterniond(0, 1, 0, 0), "home_right"}}
+            {"home_left", {{0.384, 0.241, 1.088}, Eigen::Quaterniond(0, 1, 0, 0), "home_left"}},
+            {"home_right",  {{0.256, -0.285, 1.22}, Eigen::Quaterniond(0, 1, 0, 0), "home_right"}}
         };
 
         Pose right_idle_;
