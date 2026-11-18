@@ -4,7 +4,6 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, GroupAction, IncludeLaunchDescription, OpaqueFunction
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
-from launch_ros.actions import SetParameter
 from launch_ros.substitutions import FindPackageShare
 
 
@@ -22,51 +21,40 @@ def _start_cameras(context):
     driver_launch = PathJoinSubstitution([
         FindPackageShare("realsense2_camera"), "launch", "rs_launch.py"
     ])
-    # Resolve our parameters before isolating each RealSense launch context.
     color_profile = LaunchConfiguration("color_profile").perform(context)
     depth_profile = LaunchConfiguration("depth_profile").perform(context)
 
     actions = []
     for arm in ("left", "right"):
-        # RealSense's underscore prefix preserves numeric serials as strings in YAML.
-        # The RealSense launch checks every launch configuration for
-        # unsupported parameters. Suppress inherited DAVID arguments here.
+        # RealSense's rs_launch.py supports a per-node flat parameter dictionary
+        # through config_file. Do not use SetParameter here: it injects
+        # global_params into the launch context and crashes these camera nodes.
+        codec_config = PathJoinSubstitution([
+            FindPackageShare("david_launch"),
+            "config",
+            f"cam_{arm}_lossless.yaml",
+        ])
         actions.append(GroupAction(
             scoped=True,
             forwarding=False,
             actions=[
-                # Use the existing RealSense image_transport plugins.
-                # The plugin's parameter prefix includes the node name.
-                # PNG preserves RGB values; RVL preserves uint16 depth values.
-                SetParameter(
-                    name=f".cam_{arm}.color.image_raw.compressed.format",
-                    value="png",
-                ),
-                SetParameter(
-                    name=f".cam_{arm}.aligned_depth_to_color.image_raw.compressedDepth.format",
-                    value="rvl",
-                ),
-                # The depth plugin otherwise zeroes points beyond 10 metres.
-                # Keep the full 16-bit millimetre range without clipping.
-                SetParameter(
-                    name=f".cam_{arm}.aligned_depth_to_color.image_raw.compressedDepth.depth_max",
-                    value=65.535,
-                ),
                 IncludeLaunchDescription(
-                PythonLaunchDescriptionSource(driver_launch),
-                launch_arguments={
-                "camera_namespace": "david",
-                "camera_name": "cam_" + arm,
-                "serial_no": "_" + serials[arm],
-                "enable_color": "true",
-                "enable_depth": "true",
-                "enable_sync": "true",
-                "align_depth.enable": "true",
-                "enable_rgbd": "false",
-                "rgb_camera.color_profile": color_profile,
-                "depth_module.depth_profile": depth_profile,
-                }.items(),
-            ),
+                    PythonLaunchDescriptionSource(driver_launch),
+                    launch_arguments={
+                        "camera_namespace": "david",
+                        "camera_name": "cam_" + arm,
+                        "serial_no": "_" + serials[arm],
+                        "config_file": codec_config,
+                        "enable_color": "true",
+                        "enable_depth": "true",
+                        "enable_sync": "true",
+                        "align_depth.enable": "true",
+                        "enable_rgbd": "false",
+                        "pointcloud.enable": "false",
+                        "rgb_camera.color_profile": color_profile,
+                        "depth_module.depth_profile": depth_profile,
+                    }.items(),
+                ),
             ],
         ))
     return actions
