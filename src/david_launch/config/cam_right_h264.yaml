@@ -1,0 +1,11 @@
+# Existing lossless modes preserved; ffmpeg transport is optional.
+".cam_right.color.image_raw.compressed.format": "png"
+".cam_right.aligned_depth_to_color.image_raw.compressedDepth.format": "rvl"
+".cam_right.aligned_depth_to_color.image_raw.compressedDepth.depth_max": 65.535
+# FFmpeg publisher strips /david/ from the topic before constructing param key.
+"cam_right.color.image_raw.ffmpeg.encoder": "libx264"
+"cam_right.color.image_raw.ffmpeg.bit_rate": 2000000
+"cam_right.color.image_raw.ffmpeg.gop_size": 10
+"cam_right.color.image_raw.ffmpeg.max_b_frames": 0
+"cam_right.color.image_raw.ffmpeg.pixel_format": "yuv420p"
+"cam_right.color.image_raw.ffmpeg.encoder_av_options": "preset:veryfast,tune:zerolatency"

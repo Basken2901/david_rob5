@@ -37,6 +37,7 @@ def generate_launch_description():
             'color_profile': LaunchConfiguration('color_profile'),
             'depth_profile': LaunchConfiguration('depth_profile'),
             'enable_grayscale': LaunchConfiguration('enable_grayscale'),
+            'video_encoder': LaunchConfiguration('video_encoder'),
         }.items(),
     )
 
@@ -68,8 +69,13 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             'enable_grayscale',
-            default_value='true',
-            description='Publish lossless grayscale PNG streams alongside original color streams.',
+            default_value='false',
+            description='Also publish optional grayscale PNG streams (uses extra CPU).',
+        ),
+        DeclareLaunchArgument(
+            'video_encoder',
+            default_value='auto',
+            description='auto: probe VA-API HEVC, fallback to software H.264; also hevc_vaapi, libx264, off.',
         ),
         controller_node,
         rgbd_cameras,

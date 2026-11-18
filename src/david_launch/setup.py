@@ -32,6 +32,7 @@ setup(
         'console_scripts': [
             'isaac_joint_states = david_launch.isaac_joint_states:main',
             'grayscale_camera = david_launch.grayscale_camera:main',
+            'camera_link_monitor = david_launch.camera_link_monitor:main',
         ],
     },
 )

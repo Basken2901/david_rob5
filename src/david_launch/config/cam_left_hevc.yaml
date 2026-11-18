@@ -1,0 +1,10 @@
+# Existing lossless modes preserved; ffmpeg transport is optional.
+".cam_left.color.image_raw.compressed.format": "png"
+".cam_left.aligned_depth_to_color.image_raw.compressedDepth.format": "rvl"
+".cam_left.aligned_depth_to_color.image_raw.compressedDepth.depth_max": 65.535
+# FFmpeg publisher strips /david/ from the topic before constructing param key.
+"cam_left.color.image_raw.ffmpeg.encoder": "hevc_vaapi"
+"cam_left.color.image_raw.ffmpeg.bit_rate": 2000000
+"cam_left.color.image_raw.ffmpeg.gop_size": 10
+"cam_left.color.image_raw.ffmpeg.max_b_frames": 0
+"cam_left.color.image_raw.ffmpeg.pixel_format": "nv12"
