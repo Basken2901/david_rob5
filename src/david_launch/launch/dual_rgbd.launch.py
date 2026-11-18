@@ -58,7 +58,7 @@ def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument("left_serial", default_value=""),
         DeclareLaunchArgument("right_serial", default_value=""),
-        DeclareLaunchArgument("color_profile", default_value="640x480x15"),
-        DeclareLaunchArgument("depth_profile", default_value="640x480x15"),
+        DeclareLaunchArgument("color_profile", default_value="640x480x60"),
+        DeclareLaunchArgument("depth_profile", default_value="640x480x60"),
         OpaqueFunction(function=_start_cameras),
     ])

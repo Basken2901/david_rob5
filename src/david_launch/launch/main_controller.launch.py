@@ -34,6 +34,8 @@ def generate_launch_description():
         launch_arguments={
             'left_serial': LaunchConfiguration('left_camera_serial'),
             'right_serial': LaunchConfiguration('right_camera_serial'),
+            'color_profile': LaunchConfiguration('color_profile'),
+            'depth_profile': LaunchConfiguration('depth_profile'),
         }.items(),
     )
 
@@ -52,6 +54,16 @@ def generate_launch_description():
             'right_camera_serial',
             default_value='250122074198',
             description='RealSense serial number on the right wrist.',
+        ),
+        DeclareLaunchArgument(
+            'color_profile',
+            default_value='640x480x60',
+            description='RGB width x height x FPS for both RealSense cameras.',
+        ),
+        DeclareLaunchArgument(
+            'depth_profile',
+            default_value='640x480x60',
+            description='Depth width x height x FPS for both RealSense cameras.',
         ),
         controller_node,
         rgbd_cameras,
