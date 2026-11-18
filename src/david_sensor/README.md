@@ -1,9 +1,7 @@
 # DAVID dual RGB-D cameras
 
 The physical left and right RealSense cameras are attached to **DAVID's onboard PC**.
-The camera launch file is in `david_launch/launch/dual_rgbd.launch.py` and uses the existing ROS 2 RealSense wrapper, which can publish colour,
-aligned depth, CameraInfo, RGB-D and colour-textured PointCloud2 topics. There is
-no reason to write a separate point-cloud conversion publisher for the first pass.
+The camera launch file is `david_launch/launch/dual_rgbd.launch.py`. It uses the standard ROS 2 RealSense wrapper. Point-cloud generation is disabled; RGB and aligned depth are bundled into the native `realsense2_camera_msgs/msg/RGBD` message (including camera intrinsics). No compression or downsampling is applied.
 
 ## One-time onboard PC setup
 
@@ -40,23 +38,19 @@ McQueen exits. McQueen's actual launch command is not in this GitHub repo,
 so it is intentionally **not hard-coded**. If you continue entering Docker
 and starting McQueen directly, this wrapper will NOT be invoked.
 
-## Expected ROS 2 topics
+## Topics to use remotely (Isaac)
 
-- `/david/cam_left/color/image_raw`
-- `/david/cam_left/aligned_depth_to_color/image_raw`
-- `/david/cam_left/depth/color/points`
 - `/david/cam_left/rgbd`
-- Matching `/david/cam_right/...` topics.
+- `/david/cam_right/rgbd`
+
+The standard RealSense wrapper still advertises separate RGB, depth, camera-info and metadata topics. They do not normally carry camera frames over Wi-Fi without a matching remote subscriber. Have Isaac subscribe to ONLY the two combined `/rgbd` topics and close other remote image subscribers. Changing the camera publisher alone does not update the old Isaac script's subscriptions.
 
 The physical-camera data is in the camera's optical frame. A future Isaac
 subscriber/reconstruction stage must apply calibrated camera-on-wrist TFs and
 time-aligned robot poses. Merely receiving the topics does not put their points
 in DAVID's world frame.
 
-Two uncompressed full-resolution clouds plus RGB-D over Wi-Fi may be expensive.
-Start at 640x480/15fps, measure bandwidth, and then decide whether to reduce
-resolution/frames, filter points, or compress the transfer. The publishers
-are isolated from DAVID's control system.
+At 640x480/60fps, the two uncompressed RGB-D topics together contain about 1.47 Gbit/s of pixel data before DDS/network overhead. Combining colour and depth in one ROS message reduces the topic/subscription count, NOT the number of image bytes. Start with a single remote subscriber and measure the receiving rate before opening both streams. The publishers are isolated from DAVID's control system.
 
 Current `docker_real-compose.yml` sets ROS_DOMAIN_ID=1/Fast DDS. Make sure
 the onboard ROS 2 environment and Isaac subscriber use compatible DDS settings.

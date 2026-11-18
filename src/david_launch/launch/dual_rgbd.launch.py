@@ -44,8 +44,6 @@ def _start_cameras(context):
                 "enable_sync": "true",
                 "align_depth.enable": "true",
                 "enable_rgbd": "true",
-                "pointcloud.enable": "true",
-                "pointcloud.stream_filter": "2",
                 "rgb_camera.color_profile": color_profile,
                 "depth_module.depth_profile": depth_profile,
                 }.items(),
