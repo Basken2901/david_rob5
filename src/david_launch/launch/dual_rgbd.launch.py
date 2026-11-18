@@ -1,7 +1,7 @@
 """Launch DAVID's two physical RealSense RGB-D cameras on the onboard PC."""
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, OpaqueFunction
+from launch.actions import DeclareLaunchArgument, GroupAction, IncludeLaunchDescription, OpaqueFunction
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.substitutions import FindPackageShare
@@ -21,12 +21,21 @@ def _start_cameras(context):
     driver_launch = PathJoinSubstitution([
         FindPackageShare("realsense2_camera"), "launch", "rs_launch.py"
     ])
+    # Resolve our parameters before isolating each RealSense launch context.
+    color_profile = LaunchConfiguration("color_profile").perform(context)
+    depth_profile = LaunchConfiguration("depth_profile").perform(context)
+
     actions = []
     for arm in ("left", "right"):
         # RealSense's underscore prefix preserves numeric serials as strings in YAML.
-        actions.append(IncludeLaunchDescription(
-            PythonLaunchDescriptionSource(driver_launch),
-            launch_arguments={
+        # The RealSense launch checks every launch configuration for
+        # unsupported parameters. Suppress inherited DAVID arguments here.
+        actions.append(GroupAction(
+            scoped=True,
+            forwarding=False,
+            actions=[IncludeLaunchDescription(
+                PythonLaunchDescriptionSource(driver_launch),
+                launch_arguments={
                 "camera_namespace": "david",
                 "camera_name": "cam_" + arm,
                 "serial_no": "_" + serials[arm],
@@ -37,9 +46,10 @@ def _start_cameras(context):
                 "enable_rgbd": "true",
                 "pointcloud.enable": "true",
                 "pointcloud.stream_filter": "2",
-                "rgb_camera.color_profile": LaunchConfiguration("color_profile"),
-                "depth_module.depth_profile": LaunchConfiguration("depth_profile"),
-            }.items(),
+                "rgb_camera.color_profile": color_profile,
+                "depth_module.depth_profile": depth_profile,
+                }.items(),
+            )],
         ))
     return actions
 
