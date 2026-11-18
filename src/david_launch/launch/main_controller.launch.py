@@ -57,12 +57,12 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             'color_profile',
-            default_value='640x480x60',
+            default_value='640x480x30',
             description='RGB width x height x FPS for both RealSense cameras.',
         ),
         DeclareLaunchArgument(
             'depth_profile',
-            default_value='640x480x60',
+            default_value='640x480x30',
             description='Depth width x height x FPS for both RealSense cameras.',
         ),
         controller_node,
