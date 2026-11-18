@@ -555,7 +555,7 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
                 struct termios oldt, newt;
                 tcgetattr(tty_fd, &oldt);
                 newt = oldt;
-                newt.c_lflag &= ~(ICANON | ECHO);compute_velocity_publisher
+                newt.c_lflag &= ~(ICANON | ECHO);
                 tcsetattr(tty_fd, TCSANOW, &newt);
                 fcntl(tty_fd, F_SETFL, O_NONBLOCK);
 
