@@ -3,5 +3,11 @@ controller:
     p_controller:
       kp: 1.0
     dms_threshold: 0.5
-    relative_scaling_factor: 0.5
-    tool_offset_z: 0.15
+    relative_scaling_factor: 1.0
+    rotation_scaling_factor: 0.5
+    tool_offset_z: 0.0
+    rotation_mapping: "world"          # "world" = your old rotation behaviour
+    left_controller_twist_axis:  [0.0, 0.0, -1.0]
+    right_controller_twist_axis: [0.0, 0.0, -1.0]
+    left_tool_twist_offset_deg: 0.0
+    right_tool_twist_offset_deg: 0.0
