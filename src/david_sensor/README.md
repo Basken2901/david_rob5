@@ -1,5 +1,10 @@
 # DAVID dual RealSense RGB-D over Wi-Fi (lossless)
 
+**Experimental grayscale streaming:** See [GRAYSCALE_TEST.md](GRAYSCALE_TEST.md) for
+new onboard-generated mono8 PNG topics. The original RGB topics still exist;
+this does **not** change the camera's actual RGB capture format.
+
+
 Both RealSense D435i cameras attach to DAVID's onboard PC. With `david_docker_real`
 running, starting the **existing** `ros2 launch david_launch main_controller.launch.py`
 launches McQueen and both cameras at **640×480, 30 FPS** for color and depth.

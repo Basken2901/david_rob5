@@ -4,6 +4,8 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y \
     python3-pip \
+    python3-numpy \
+    python3-opencv \
     python3-colcon-common-extensions \
     python3-rosdep \
     ros-jazzy-ur \

@@ -17,6 +17,8 @@
   <exec_depend>image_transport_plugins</exec_depend>
   <exec_depend>rclpy</exec_depend>
   <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>python3-numpy</exec_depend>
+  <exec_depend>python3-opencv</exec_depend>
   <exec_depend>moveit_servo</exec_depend>
   <exec_depend>ur_description</exec_depend>
   <exec_depend>ur_moveit_config</exec_depend>

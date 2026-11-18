@@ -36,6 +36,7 @@ def generate_launch_description():
             'right_serial': LaunchConfiguration('right_camera_serial'),
             'color_profile': LaunchConfiguration('color_profile'),
             'depth_profile': LaunchConfiguration('depth_profile'),
+            'enable_grayscale': LaunchConfiguration('enable_grayscale'),
         }.items(),
     )
 
@@ -64,6 +65,11 @@ def generate_launch_description():
             'depth_profile',
             default_value='640x480x30',
             description='Depth width x height x FPS for both RealSense cameras.',
+        ),
+        DeclareLaunchArgument(
+            'enable_grayscale',
+            default_value='true',
+            description='Publish lossless grayscale PNG streams alongside original color streams.',
         ),
         controller_node,
         rgbd_cameras,

@@ -2,6 +2,7 @@
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, GroupAction, IncludeLaunchDescription, OpaqueFunction
+from launch_ros.actions import Node
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.substitutions import FindPackageShare
@@ -24,6 +25,7 @@ def _start_cameras(context):
     color_profile = LaunchConfiguration("color_profile").perform(context)
     depth_profile = LaunchConfiguration("depth_profile").perform(context)
 
+    enable_grayscale = LaunchConfiguration("enable_grayscale").perform(context).lower() in ("true", "1", "yes")
     actions = []
     for arm in ("left", "right"):
         # RealSense's rs_launch.py supports a per-node flat parameter dictionary
@@ -57,6 +59,15 @@ def _start_cameras(context):
                 ),
             ],
         ))
+        if enable_grayscale:
+            actions.append(Node(
+                package="david_launch",
+                executable="grayscale_camera",
+                name=f"cam_{arm}_grayscale",
+                namespace="david",
+                parameters=[{"camera_name": f"cam_{arm}"}],
+                output="screen",
+            ))
     return actions
 
 
@@ -66,5 +77,6 @@ def generate_launch_description():
         DeclareLaunchArgument("right_serial", default_value=""),
         DeclareLaunchArgument("color_profile", default_value="640x480x30"),
         DeclareLaunchArgument("depth_profile", default_value="640x480x30"),
+        DeclareLaunchArgument("enable_grayscale", default_value="true"),
         OpaqueFunction(function=_start_cameras),
     ])
