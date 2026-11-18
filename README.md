@@ -146,3 +146,40 @@ XR_RUNTIME_JSON="$HOME/.steam/debian-installation/steamapps/common/SteamVR/steam
 cd ~/ROB5/david_rob5/setup
 chmod +x install_david_launcher.sh
 ./install_david_launcher.sh
+
+
+
+
+### Controlling the Real robot D.A.V.I.D. :
+
+1. Turn on both pendants for the UR5E. It's important the portable e-stop, is active when starting the system.
+2. Turn on the onboard pc.
+3. On both pendants, load program Shao_grip_ on one pendant and Soren_grip_ on the other, and play program. This makes it possible to execute commands to the robot.
+4. SSH into the onboard pc via:
+   ```
+   ssh gr141@192.168.0.251
+   ```
+   Do this in two terminals.
+5. Run following command on terminal 1:
+  ```
+   cd ~/ROB5/david_rob5/setup/ && ./install_david_launcher.sh && ./launch_david_real.sh
+  ```
+6. Run this on terminal 2, when 1 says "[INFO] [spawner-3]: process has finished cleanly [pid 53]" :
+   ```
+   cd ~/ROB5/david_rob5/docker/ && docker exec -it david_docker_real bash
+   ```
+7. On terminal 2, build workspace and source, then when ready run:
+   ```
+   ros2 launch david_launch main_controller.launch.py
+   ```
+  When the program starts, it always start in the test mode, here it's possible to move the arms with:
+  Left ARM: W/S/A/D for the xy-plane, and Z/X for z-plane.
+  Right Arm: I/K/J/L for the xy-plane, and N/M for z-plane.
+  H button makes the arms go into a home position.
+
+8. To activate the vr teleoperation: (Need some isaac stuff before this):
+  Press G on the keyboard to inter vr controlled mode.
+  Best way to stop program or go out of vr controlled mode, press CTRL+C and start the program again.
+  D.A.V.I.D. will not move, unless dead man switch is active.
+  
+   
