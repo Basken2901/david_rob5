@@ -4,6 +4,7 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, GroupAction, IncludeLaunchDescription, OpaqueFunction
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
+from launch_ros.actions import SetParameter
 from launch_ros.substitutions import FindPackageShare
 
 
@@ -33,7 +34,25 @@ def _start_cameras(context):
         actions.append(GroupAction(
             scoped=True,
             forwarding=False,
-            actions=[IncludeLaunchDescription(
+            actions=[
+                # Use the existing RealSense image_transport plugins.
+                # The plugin's parameter prefix includes the node name.
+                # PNG preserves RGB values; RVL preserves uint16 depth values.
+                SetParameter(
+                    name=f".cam_{arm}.color.image_raw.compressed.format",
+                    value="png",
+                ),
+                SetParameter(
+                    name=f".cam_{arm}.aligned_depth_to_color.image_raw.compressedDepth.format",
+                    value="rvl",
+                ),
+                # The depth plugin otherwise zeroes points beyond 10 metres.
+                # Keep the full 16-bit millimetre range without clipping.
+                SetParameter(
+                    name=f".cam_{arm}.aligned_depth_to_color.image_raw.compressedDepth.depth_max",
+                    value=65.535,
+                ),
+                IncludeLaunchDescription(
                 PythonLaunchDescriptionSource(driver_launch),
                 launch_arguments={
                 "camera_namespace": "david",
@@ -43,11 +62,12 @@ def _start_cameras(context):
                 "enable_depth": "true",
                 "enable_sync": "true",
                 "align_depth.enable": "true",
-                "enable_rgbd": "true",
+                "enable_rgbd": "false",
                 "rgb_camera.color_profile": color_profile,
                 "depth_module.depth_profile": depth_profile,
                 }.items(),
-            )],
+            ),
+            ],
         ))
     return actions
 

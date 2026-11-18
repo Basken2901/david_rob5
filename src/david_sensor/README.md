@@ -1,57 +1,84 @@
-# DAVID dual RGB-D cameras
+# DAVID dual RealSense RGB-D over Wi-Fi (lossless)
 
-The physical left and right RealSense cameras are attached to **DAVID's onboard PC**.
-The camera launch file is `david_launch/launch/dual_rgbd.launch.py`. It uses the standard ROS 2 RealSense wrapper. Point-cloud generation is disabled; RGB and aligned depth are bundled into the native `realsense2_camera_msgs/msg/RGBD` message (including camera intrinsics). No compression or downsampling is applied.
+Both RealSense D435i cameras attach to DAVID's onboard PC. With `david_docker_real`
+running, starting the **existing** `ros2 launch david_launch main_controller.launch.py`
+launches McQueen and both cameras at **640×480, 30 FPS** for color and depth.
+The RealSense driver still aligns depth to the RGB image.
 
-## One-time onboard PC setup
+## Transport to Isaac (subscribe ONLY to these image streams)
 
-On the onboard PC, install ROS 2 Jazzy and `realsense2_camera`, connect both
-cameras, and check `rs-enumerate-devices` for their serial numbers. Keep a copy
-of the `david_rob5` workspace on the onboard PC.
+- `/david/cam_left/color/image_raw/compressed` — `sensor_msgs/msg/CompressedImage`, **PNG** (lossless RGB).
+- `/david/cam_left/aligned_depth_to_color/image_raw/compressedDepth` — `sensor_msgs/msg/CompressedImage`, **RVL** (lossless 16-bit depth).
+- Same two topics under `/david/cam_right/`.
+- Small calibration topics: `/david/cam_left/color/camera_info` and `/david/cam_right/color/camera_info`.
 
-From that onboard workspace:
+No JPEG, grayscale, colour reduction, depth downsampling, or point-cloud generation.
+The combined `/rgbd` publisher is **disabled**. Native raw image topics may still
+be listed by ROS 2; they are **not transmitted across Wi-Fi** without subscribers.
+Close other camera viewers or `ros2 topic echo/hz` instances on raw topics
+while testing compressed transport.
+
+Compressed image topics use the RealSense wrapper's existing `image_transport`
+publishers and ROS 2 Jazzy's `image_transport_plugins`, installed in
+`docker/Dockerfile`. The launch file sets per-camera plugin parameters in
+scoped groups:
+- PNG codec on colour `image_raw/compressed`.
+- RVL codec on aligned `image_raw/compressedDepth`.
+- `compressedDepth.depth_max = 65.535` metres so **raw 16UC1 millimetre
+  depth** isn't clipped at the plugin's default 10-metre threshold.
+
+The exact wire format can be verified by reading the `format` field. PNG must
+say `png`, **not `jpeg`**; depth must say `compressedDepth rvl`.
+Do not assume it is lossless until these values are verified in the running node.
+
+## Deploy on onboard PC
+
+After pulling the `feat/david-rgbd-mixed-reality` branch, stop the active
+real-DAVID launch safely. Rebuild the **real** Docker image to install the
+compression plugins:
+
 ```bash
+cd ~/ROB5/david_rob5/docker
+docker compose -f docker_real-compose.yml up -d --build --force-recreate
+docker exec -it david_docker_real bash
+cd /ros2_ws
 colcon build --packages-select david_launch
-bash setup/onboard/install_camera_service.sh
+source install/setup.bash
+ros2 launch david_launch main_controller.launch.py
 ```
 
-Then edit `~/.config/david/cameras.env` with the left and right serial numbers.
-The new user service is installed **without being enabled at boot**.
-Check `systemctl --user` works in a noninteractive SSH session. The Docker
-host needs passwordless SSH access to that onboard user.
-
-## Normal McQueen startup (from Docker host)
-
-First click the **existing real-DAVID desktop shortcut** (starts Docker and
-the UR drivers, unchanged). Replace the manual McQueen command inside Docker
-with this **host-side** wrapper:
+Verify inside Docker (use a different terminal so the launch remains running):
 
 ```bash
-export DAVID_ONBOARD_SSH=onboard-user@onboard-ip
-bash setup/start_mcqueen_with_cameras.sh <the McQueen command you already use>
+ros2 topic list | grep -E 'cam_(left|right)/.*(compressedDepth|compressed)'
+ros2 param list /david/cam_left | grep -E 'compressed.*(format|depth_max)'
+ros2 topic echo /david/cam_left/color/image_raw/compressed --once --field format
+ros2 topic echo /david/cam_left/aligned_depth_to_color/image_raw/compressedDepth --once --field format
 ```
 
-The command/arguments after the wrapper are executed in the real-DAVID
-container with the ROS 2 workspace sourced. The wrapper starts the camera
-service over SSH before launching McQueen, and stops the camera service when
-McQueen exits. McQueen's actual launch command is not in this GitHub repo,
-so it is intentionally **not hard-coded**. If you continue entering Docker
-and starting McQueen directly, this wrapper will NOT be invoked.
+The `--once --field format` commands require a subscriber and may briefly
+trigger encoding of one frame; this is intended. In the normal remote system,
+subscribe only to the four compressed image topics plus two CameraInfo topics,
+with **best-effort, keep-last depth 1** subscriber QoS.
 
-## Topics to use remotely (Isaac)
+## On laptop / Isaac PC
 
-- `/david/cam_left/rgbd`
-- `/david/cam_right/rgbd`
+Use ROS_DOMAIN_ID=1 and working DDS discovery. Example:
 
-The standard RealSense wrapper still advertises separate RGB, depth, camera-info and metadata topics. They do not normally carry camera frames over Wi-Fi without a matching remote subscriber. Have Isaac subscribe to ONLY the two combined `/rgbd` topics and close other remote image subscribers. Changing the camera publisher alone does not update the old Isaac script's subscriptions.
+```bash
+source /opt/ros/jazzy/setup.bash
+export ROS_DOMAIN_ID=1
+export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+ros2 topic hz /david/cam_left/color/image_raw/compressed
+```
 
-The physical-camera data is in the camera's optical frame. A future Isaac
-subscriber/reconstruction stage must apply calibrated camera-on-wrist TFs and
-time-aligned robot poses. Merely receiving the topics does not put their points
-in DAVID's world frame.
+The older Isaac Script Node subscribes to raw images or `/rgbd` and **will not
+receive compressed data as-is**. Replace its subscribers with the compressed
+transport version, retaining camera-info and image timestamps. For correct
+persistent world-anchored reconstruction, the Isaac model-prims' optical-frame
+calibration and synchronized robot/camera timestamps are still required.
 
-At 640x480/60fps, the two uncompressed RGB-D topics together contain about 1.47 Gbit/s of pixel data before DDS/network overhead. Combining colour and depth in one ROS message reduces the topic/subscription count, NOT the number of image bytes. Start with a single remote subscriber and measure the receiving rate before opening both streams. The publishers are isolated from DAVID's control system.
-
-Current `docker_real-compose.yml` sets ROS_DOMAIN_ID=1/Fast DDS. Make sure
-the onboard ROS 2 environment and Isaac subscriber use compatible DDS settings.
-This does not implement the Isaac scene renderer or TSDF persistence.
+**Performance note:** Even lossless compression can exceed available Wi-Fi
+throughput on textured/noisy scenes. Evaluate delivered FPS and dropped frames
+for **all four** streams concurrently; 30 FPS is a requested sensor profile,
+not a guaranteed remote delivery rate.

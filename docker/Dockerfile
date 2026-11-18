@@ -14,6 +14,7 @@ RUN apt-get update && apt-get install -y \
     ros-jazzy-ros2-controllers \
     ros-jazzy-rmw-cyclonedds-cpp \
     ros-jazzy-realsense2-camera \
+    ros-jazzy-image-transport-plugins \
     ros-jazzy-librealsense2 \
     usbutils \
     v4l-utils \
