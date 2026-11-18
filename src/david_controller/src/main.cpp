@@ -284,7 +284,8 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
             if (arm_clearance_checker_)
             {
                 arm_clearance_checker_->check_clearance(msg);
-                if (!arm_clearance_checker_->motion_allowed())
+                if (state_manager.get_control_mode() != ControlMode::TEST &&
+                    !arm_clearance_checker_->motion_allowed())
                     publishZeroVelocity();
             }
 
