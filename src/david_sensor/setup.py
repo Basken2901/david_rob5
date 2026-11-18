@@ -15,15 +15,8 @@ setup(
     zip_safe=True,
     maintainer='mathias',
     maintainer_email='mathiasaskhansen04@gmail.com',
-    description='TODO: Package description',
+    description='DAVID dual RealSense RGB-D camera launch',
     license='TODO: License declaration',
-    extras_require={
-        'test': [
-            'pytest',
-        ],
-    },
-    entry_points={
-        'console_scripts': [
-        ],
-    },
+    extras_require={'test': ['pytest']},
+    entry_points={'console_scripts': []},
 )

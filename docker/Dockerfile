@@ -13,6 +13,10 @@ RUN apt-get update && apt-get install -y \
     ros-jazzy-ros2-control \
     ros-jazzy-ros2-controllers \
     ros-jazzy-rmw-cyclonedds-cpp \
+    ros-jazzy-realsense2-camera \
+    ros-jazzy-librealsense2 \
+    usbutils \
+    v4l-utils \
     git \
     iputils-ping \
     && rm -rf /var/lib/apt/lists/*
