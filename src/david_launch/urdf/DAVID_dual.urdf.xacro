@@ -60,9 +60,8 @@
         <origin xyz="0 0 0" rpy="0 0 0" />
     </joint>
 
-    <!-- Visual preview: 104.5 x 52 x 69 cm, centered between the arm mounts.
-         Top at mount height z=0.4902 m; center z=0.4902 - 0.69/2.
-         Collision geometry will be added when box collision checking is enabled. -->
+    <!-- Under-arm box: matching visual and collision geometry.
+         Placement is defined by root_to_under_arm_box below. -->
     <link name="under_arm_box">
         <visual>
             <geometry>
@@ -72,6 +71,11 @@
                 <color rgba="1.0 0.5 0.0 0.4" />
             </material>
         </visual>
+        <collision>
+            <geometry>
+                <box size="1.045 0.52 0.69" />
+            </geometry>
+        </collision>
     </link>
     <joint name="root_to_under_arm_box" type="fixed">
         <parent link="root" />
