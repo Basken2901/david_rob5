@@ -13,9 +13,9 @@ namespace
 {
 constexpr std::array<const char*, 2> ARM_PREFIXES{"left_", "right_"};
 
-constexpr std::array<const char*, 6> ARM_LINKS{
+constexpr std::array<const char*, 7> ARM_LINKS{
     "shoulder_link", "upper_arm_link", "forearm_link",
-    "wrist_1_link", "wrist_2_link", "wrist_3_link"};
+    "wrist_1_link", "wrist_2_link", "wrist_3_link", "gripper_collision"};
 
 constexpr std::array<const char*, 6> ARM_JOINTS{
     "shoulder_pan_joint", "shoulder_lift_joint", "elbow_joint",

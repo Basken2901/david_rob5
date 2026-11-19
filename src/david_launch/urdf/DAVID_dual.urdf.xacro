@@ -60,6 +60,25 @@
         <origin xyz="0 0 0" rpy="0 0 0" />
     </joint>
 
+    <!-- Visual preview: 104.5 x 52 x 69 cm, centered between the arm mounts.
+         Top at mount height z=0.4902 m; center z=0.4902 - 0.69/2.
+         Collision geometry will be added when box collision checking is enabled. -->
+    <link name="under_arm_box">
+        <visual>
+            <geometry>
+                <box size="1.045 0.52 0.69" />
+            </geometry>
+            <material name="under_arm_box_orange">
+                <color rgba="1.0 0.5 0.0 0.4" />
+            </material>
+        </visual>
+    </link>
+    <joint name="root_to_under_arm_box" type="fixed">
+        <parent link="root" />
+        <child link="under_arm_box" />
+        <origin xyz="0.0006 -0.00135 0.06" rpy="0 0 1.57" />
+    </joint>
+
     <!-- ======================= Body (from Onshape) ======================= -->
     <link name="000_004__000_004">
             <inertial>
@@ -4810,6 +4829,30 @@
         <parent link="right_tool0" />
         <child link="part_1_1" />
         <origin xyz="0 0 0" rpy="-1.570796 0 $(arg right_gripper_yaw)" />
+    </joint>
+
+    <!-- Gripper housing envelopes only; fingers are deliberately excluded.
+         Adapter +Y points into the robot, so the housing extends along -Y.
+         Dimensions: width 2.7 cm, mounting-to-finger length 11.5 cm, depth 2 cm. -->
+    <link name="left_gripper_collision">
+        <collision>
+            <geometry><box size="0.027 0.115 0.020" /></geometry>
+        </collision>
+    </link>
+    <joint name="left_adapter_to_gripper_collision" type="fixed">
+        <parent link="part_1" />
+        <child link="left_gripper_collision" />
+        <origin xyz="0 -0.0575 0" rpy="0 1.57 0" />
+    </joint>
+    <link name="right_gripper_collision">
+        <collision>
+            <geometry><box size="0.027 0.115 0.020" /></geometry>
+        </collision>
+    </link>
+    <joint name="right_adapter_to_gripper_collision" type="fixed">
+        <parent link="part_1_1" />
+        <child link="right_gripper_collision" />
+        <origin xyz="0 -0.0575 0" rpy="0 1.57 0" />
     </joint>
 
     <!-- ======================= Driver: one hardware interface per arm ======================= -->
