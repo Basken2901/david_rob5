@@ -5,7 +5,7 @@ import shutil
 import subprocess
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, GroupAction, IncludeLaunchDescription, LogInfo, OpaqueFunction
+from launch.actions import DeclareLaunchArgument, GroupAction, IncludeLaunchDescription, LogInfo, OpaqueFunction, SetEnvironmentVariable
 from launch_ros.actions import Node
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
@@ -69,7 +69,10 @@ def _start_cameras(context):
     else:
         encoder = requested
         status = f"Video encoder selected: {encoder}"
-    actions = [LogInfo(msg=f"DAVID cameras: {status}; depth stays lossless RVL")]
+    actions = [
+        LogInfo(msg=f"DAVID cameras: {status}; depth stays lossless RVL"),
+        LogInfo(msg="DAVID camera DDS: LARGE_DATA (TCP/SHM); McQueen keeps its existing transport"),
+    ]
     for arm in ("left", "right"):
         # RealSense's rs_launch.py supports a per-node flat parameter dictionary
         # through config_file. Do not use SetParameter here: it injects
@@ -88,6 +91,9 @@ def _start_cameras(context):
             scoped=True,
             forwarding=False,
             actions=[
+                # GroupAction scopes the environment to this RealSense process.
+                # Do not apply this to the parent launch: McQueen stays on UDP/SHM.
+                SetEnvironmentVariable(name="FASTDDS_BUILTIN_TRANSPORTS", value="LARGE_DATA"),
                 IncludeLaunchDescription(
                     PythonLaunchDescriptionSource(driver_launch),
                     launch_arguments={

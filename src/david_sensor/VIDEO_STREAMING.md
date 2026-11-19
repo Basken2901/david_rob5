@@ -6,6 +6,25 @@ Radeon 780M VA-API, but hardware access is *not yet confirmed*. The host
 
 ## What ships in this branch
 
+**Camera DDS default: `LARGE_DATA`.** The two RealSense camera processes now run
+with `FASTDDS_BUILTIN_TRANSPORTS=LARGE_DATA` scoped to each camera launch group.
+McQueen retains its original Fast DDS environment and transport. This is a
+transport-only change: the cameras remain at 640x480x30, H.265 RGB, and RVL
+depth. No extra Docker packages are needed for Large Data mode.
+
+This mode uses UDP for initial discovery and TCP/SHM for application data.
+**Remote camera receivers must use compatible TCP/SHM transport.** The
+`camera_link_monitor` now sets `LARGE_DATA` for its own process automatically;
+other laptop ROS nodes and Isaac Sim do not change automatically. In the
+future, the Isaac camera receiver must use compatible transport; do not set
+`LARGE_DATA` for the whole Isaac process without checking its other ROS bridge
+participants and joint-state subscriptions.
+
+This is an experiment, not a guarantee of 30 FPS: TCP retransmissions can
+increase age/latency, and the network still has finite bandwidth. Make sure
+both cameras are connected, the robot is stationary, and no remote robot
+control depends on the camera link before restarting `main_controller`.
+
 The existing **one-command launch** remains:
 
 ```bash
@@ -93,12 +112,20 @@ ros2 run david_launch camera_link_monitor
 ```
 
 The monitor subscribes to all four compressed topics simultaneously with
-sensor-data QoS (BEST_EFFORT, VOLATILE, shallow queue), reporting delivery
+sensor-data QoS (BEST_EFFORT, VOLATILE, shallow queue) **over Large Data TCP**,
+reporting delivery
 rate, bandwidth and worst interarrival gap **every 10 seconds**. PASS
 requires >=27 messages/sec and <=0.20 s worst gap for each topic.
 A video frame usually produces one FFmpeg packet, so packet rate is an
 approximation to frame rate; it is not pixel-decoded frame verification.
 Do not mistake local `ros2 topic hz` for laptop delivery.
+For manual camera measurements on the laptop use
+`FASTDDS_BUILTIN_TRANSPORTS=LARGE_DATA ros2 topic hz <camera-topic>`;
+ordinary `ros2 topic hz` processes keep default UDP/SHM and may discover
+camera publishers without receiving their TCP-only data. If packets do not
+arrive, also check TCP connectivity/firewall rules between machines.
+Restart the camera launch after pulling/rebuilding `david_launch`; a source
+change cannot alter DDS transport in already-running camera processes.
 
 Check hardware detection/codec on DAVID *after a video subscriber connects*:
 

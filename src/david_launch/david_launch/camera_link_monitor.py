@@ -4,6 +4,7 @@ Outputs rolling delivered rates and largest arrival gap. Does not decode video;
 packet rate is a proxy for FPS for one-packet-per-frame HEVC/H.264 encoders.
 """
 
+import os
 import time
 from dataclasses import dataclass, field
 
@@ -28,7 +29,7 @@ class CameraLinkMonitor(Node):
         self.period = 10.0
         self.started = time.monotonic()
         self.stats = {}
-        self.subscriptions = []
+        self._camera_subscriptions = []
 
         for side in ("left", "right"):
             name = f"cam_{side}"
@@ -51,7 +52,7 @@ class CameraLinkMonitor(Node):
 
     def _add(self, name, topic, kind):
         self.stats[name] = Sample()
-        self.subscriptions.append(self.create_subscription(
+        self._camera_subscriptions.append(self.create_subscription(
             kind, topic, lambda msg, label=name: self.on_frame(label, msg),
             qos_profile_sensor_data,
         ))
@@ -88,6 +89,8 @@ class CameraLinkMonitor(Node):
 
 
 def main(args=None):
+    # Only this monitoring process uses TCP/SHM. Other ROS nodes are unaffected.
+    os.environ.setdefault("FASTDDS_BUILTIN_TRANSPORTS", "LARGE_DATA")
     rclpy.init(args=args)
     node = CameraLinkMonitor()
     try:
