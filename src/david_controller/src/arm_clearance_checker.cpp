@@ -13,9 +13,13 @@ namespace
 {
 constexpr std::array<const char*, 2> ARM_PREFIXES{"left_", "right_"};
 
-constexpr std::array<const char*, 6> ARM_LINKS{
+constexpr std::array<const char*, 7> ARM_LINKS{
     "shoulder_link", "upper_arm_link", "forearm_link",
-    "wrist_1_link", "wrist_2_link", "wrist_3_link"};
+    "wrist_1_link", "wrist_2_link", "wrist_3_link", "gripper_collision"};
+
+constexpr std::array<const char*, 4> BOX_CHECK_LINKS{
+    "wrist_1_link", "wrist_2_link", "wrist_3_link", "gripper_collision"};
+constexpr const char* UNDER_ARM_BOX = "under_arm_box";
 
 constexpr std::array<const char*, 6> ARM_JOINTS{
     "shoulder_pan_joint", "shoulder_lift_joint", "elbow_joint",
@@ -92,13 +96,27 @@ void ArmClearanceChecker::load_model(const std::string& description)
         }
     }
 
+    const auto* box = model->getLinkModel(UNDER_ARM_BOX);
+    if (!box || box->getShapes().empty())
+    {
+        RCLCPP_ERROR(node_.get_logger(), "No collision geometry loaded for %s", UNDER_ARM_BOX);
+        return;
+    }
+
     collision_matrix_ = collision_detection::AllowedCollisionMatrix(
         model->getLinkModelNames(), true);
     collision_matrix_.setEntry(left_links, right_links, false);
+    // All other box pairs stay allowed, including shoulders, upper arms and forearms.
+    for (const char* prefix : ARM_PREFIXES)
+    {
+        for (const char* suffix : BOX_CHECK_LINKS)
+            collision_matrix_.setEntry(UNDER_ARM_BOX, std::string(prefix) + suffix, false);
+    }
 
     scene_ = std::move(scene);
-    RCLCPP_INFO(node_.get_logger(), "Checking %zu cross-arm link pairs",
-                left_links.size() * right_links.size());
+    RCLCPP_INFO(node_.get_logger(), "Checking %zu cross-arm and %zu box link pairs",
+                left_links.size() * right_links.size(),
+                ARM_PREFIXES.size() * BOX_CHECK_LINKS.size());
 }
 
 bool ArmClearanceChecker::motion_allowed() const
@@ -171,7 +189,7 @@ void ArmClearanceChecker::check_clearance(
         !std::isfinite(closest.distance))
     {
         RCLCPP_WARN_THROTTLE(node_.get_logger(), *node_.get_clock(), 2000,
-                             "MoveIt returned no cross-arm distance");
+                             "MoveIt returned no checked-pair distance");
         return;
     }
 
