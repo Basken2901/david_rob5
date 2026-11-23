@@ -9,11 +9,15 @@ services:
     volumes:
       - ..:/ros2_ws
       - /tmp/.X11-unix:/tmp/.X11-unix
+      - /dev:/dev                   # RealSense USB/video devices, including reconnects
+    device_cgroup_rules:
+      - 'c 81:* rwm'                # /dev/video* (V4L2)
+      - 'c 189:* rwm'               # /dev/bus/usb/*
     environment:
       - DISPLAY=${DISPLAY}
       - QT_X11_NO_MITSHM=1
       - LIBGL_ALWAYS_SOFTWARE=1
-      - ROS_DOMAIN_ID=1 
+      - ROS_DOMAIN_ID=1
       - ROS_STATIC_PEERS=192.168.0.200
       - RMW_IMPLEMENTATION=rmw_fastrtps_cpp          # keep separate from the sim container's ROS graph
     stdin_open: true

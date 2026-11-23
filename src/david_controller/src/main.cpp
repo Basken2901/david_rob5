@@ -286,7 +286,8 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
             if (arm_clearance_checker_)
             {
                 arm_clearance_checker_->check_clearance(msg);
-                if (!arm_clearance_checker_->motion_allowed())
+                if (state_manager.get_control_mode() != ControlMode::TEST &&
+                    !arm_clearance_checker_->motion_allowed())
                     publishZeroVelocity();
             }
 
@@ -349,8 +350,6 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
 
             
         }
-
-
         void vr_callback(const interface::msg::VRInput& msg)
         {
             if (msg.left.pose_available) {
@@ -465,7 +464,7 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         //}
         void publishMotionVelocity(Arm& arm, std_msgs::msg::Float64MultiArray& cmd)
         {
-            const double scale = arm_clearance_checker_
+            const double scale = state_manager.get_control_mode() != ControlMode::TEST && arm_clearance_checker_
                 ? arm_clearance_checker_->velocity_scale() : 1.0;
             for (double& velocity : cmd.data)
                 velocity = scale == 0.0 ? 0.0 : velocity * scale;
@@ -740,7 +739,9 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
 
         void control_loop()
         {
-            if (arm_clearance_checker_ && !arm_clearance_checker_->motion_allowed())
+            // Keyboard control may override clearance stops; automatic modes remain protected.
+            if (state_manager.get_control_mode() != ControlMode::TEST &&
+                arm_clearance_checker_ && !arm_clearance_checker_->motion_allowed())
             {
                 publishZeroVelocity();
                 // Discard old targets so they cannot pull the arms back after recovery.
@@ -908,10 +909,14 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
                     }
 
                     if (left_keys_.home == true){
+                        publishZeroVelocity();
                         state_manager.set_control_mode(ControlMode::HOME);
+                        break;
                     }
                     if (left_keys_.operate == true){
+                        publishZeroVelocity();
                         state_manager.set_control_mode(ControlMode::OPERATION);
+                        break;
                     }
                     keyboardJog(right_arm_, right_q, right_keys_);
                     // -------------------------------
