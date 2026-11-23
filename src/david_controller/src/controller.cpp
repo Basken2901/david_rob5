@@ -135,3 +135,15 @@ std::array<double, 6> Controller::joint_limit_guard(const std::array<double, 6>&
     if (limiting_joint) *limiting_joint = worst;
     return qdot;
 }
+
+std::array<double, 6> Controller::joint_trajectory_controller(const std::array<double, 6>& current,
+                                                              const std::array<double, 6>& desired_pos,
+                                                              const std::array<double, 6>& desired_vel) const
+{
+    const double kp = p_gains_.Kp;
+    const double max_vel = 0.5;  // rad/s, same safety limit as p_controller
+    std::array<double, 6> vel{};
+    for (size_t i = 0; i < 6; ++i)
+        vel[i] = std::clamp(desired_vel[i] + kp * (desired_pos[i] - current[i]), -max_vel, max_vel);
+    return vel;
+}

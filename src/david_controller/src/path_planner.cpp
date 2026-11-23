@@ -1,6 +1,9 @@
 #include "path_planner.h"
 #include "state_manager.h"
 
+#include <algorithm>
+#include <cmath>
+
 std::vector<double> PathPlanner::generate_polynomium_coefficients(
     double start, double end, double start_vel, double start_acc, double time)
 {
@@ -23,44 +26,62 @@ std::vector<double> PathPlanner::generate_polynomium_coefficients(
     return std::vector<double>{coeffs[0], coeffs[1], coeffs[2], coeffs[3], coeffs[4], coeffs[5], coeffs[6], coeffs[7]};
 }
 
-bool PathPlanner::generate_trajectory(
-    const Eigen::Vector3d& start_pos, const Eigen::Vector3d& end_pos, const Eigen::Quaterniond& start_quat, const Eigen::Quaterniond& end_quat,
-    const Eigen::Vector3d& current_velocity, const Eigen::Vector3d& current_acceleration)
+bool PathPlanner::generate_trajectory(const JointArray& q_start, const JointArray& q_end,
+                                      const JointArray& qd_start, const JointArray& qdd_start)
 {
     std::lock_guard<std::recursive_mutex> lock(planner_mutex_);
-    
-    float distance = (end_pos - start_pos).norm();
-    float current_yaw = transformations.unwrapAngle(transformations.quaternionToEuler(start_quat).yaw, 2 * M_PI, 0);
-    float target_yaw = transformations.unwrapAngle(transformations.quaternionToEuler(end_quat).yaw, 2 * M_PI, 0);
-    float distance_angular = std::fabs(std::atan2(std::sin(target_yaw - current_yaw), std::cos(target_yaw - current_yaw))); //Returns abosulute value of atan2
-    float trajectory_duration_cartesian = calculateDuration(distance, current_velocity.norm(), min_linear_velocity_, max_linear_velocity_);
-    float trajectory_duration_angular = calculateDuration(distance_angular, current_angular_velocity_, min_angular_velocity_, max_angular_velocity_); //! MIGHT HAVE TO FIX FOR ANGULAR!
-    total_time = std::max({trajectory_duration_cartesian, trajectory_duration_angular, 0.1f});
-    
-    start_vel_ = current_velocity;
-    start_acc_ = current_acceleration;
-    start_quat_ = start_quat.normalized();
-    end_quat_ = end_quat.normalized();
 
-    for (int i = 0; i < 3; ++i) {
-            segments[i].coefficient = generate_polynomium_coefficients(
-                start_pos(i), end_pos(i), start_vel_(i), start_acc_(i), total_time);
-        }
+    for (std::size_t i = 0; i < UR5E_DOF; ++i) {
+        if (!std::isfinite(q_start[i]) || !std::isfinite(q_end[i]) ||
+            !std::isfinite(qd_start[i]) || !std::isfinite(qdd_start[i]))
+            return false;
+    }
+
+    // One shared duration, set by the joint that moves furthest, so all joints start and stop together
+    total_time = calculateDuration(q_start, q_end);
+
+    for (std::size_t i = 0; i < UR5E_DOF; ++i) {
+        segments[i].coefficient = generate_polynomium_coefficients(
+            q_start[i], q_end[i], qd_start[i], qdd_start[i], total_time);
+    }
+    has_trajectory_ = true;
     return true;
-} 
+}
 
+double PathPlanner::calculateDuration(const JointArray& q_start, const JointArray& q_end) const
+{
+    // Rest-to-rest 7th order polynomial over distance D in time T:
+    //   peak |q_dot|  = 35/16         * D / T
+    //   peak |q_ddot| = 84*sqrt(5)/25 * D / T^2
+    constexpr double PEAK_VEL_FACTOR = 35.0 / 16.0;
+    const double PEAK_ACC_FACTOR = 84.0 * std::sqrt(5.0) / 25.0;
 
-float PathPlanner::calculateDuration(float distance, float velocity, float min_velocity, float max_velocity) const {
-    // Clamp velocity to valid range
-    float safe_velocity = std::clamp(velocity, min_velocity, max_velocity);
+    double duration = min_duration_;
+    for (std::size_t i = 0; i < UR5E_DOF; ++i) {
+        const double distance = std::fabs(q_end[i] - q_start[i]);
+        const double t_vel = PEAK_VEL_FACTOR * distance / max_joint_velocity_;
+        const double t_acc = std::sqrt(PEAK_ACC_FACTOR * distance / max_joint_acceleration_);
+        duration = std::max({duration, t_vel, t_acc});
+    }
+    return duration;
+}
 
-    // Calculate and return duration
-    return distance / safe_velocity;
+void PathPlanner::set_limits(double max_joint_velocity, double max_joint_acceleration, double min_duration)
+{
+    std::lock_guard<std::recursive_mutex> lock(planner_mutex_);
+    if (max_joint_velocity > 0.0)     max_joint_velocity_     = max_joint_velocity;
+    if (max_joint_acceleration > 0.0) max_joint_acceleration_ = max_joint_acceleration;
+    if (min_duration > 0.0)           min_duration_           = min_duration;
 }
 
 double PathPlanner::get_total_time() const {
     std::lock_guard<std::recursive_mutex> lock(planner_mutex_);
     return total_time;
+}
+
+bool PathPlanner::has_trajectory() const {
+    std::lock_guard<std::recursive_mutex> lock(planner_mutex_);
+    return has_trajectory_;
 }
 
 
@@ -79,23 +100,18 @@ ScalarPoint PathPlanner::evaluate_polynomial(const std::vector<double>& coeffici
     return point;
 }
 
-TrajectoryPoint PathPlanner::get_trajectory_point(double time) const {
+JointTrajectoryPoint PathPlanner::get_trajectory_point(double time) const {
     std::lock_guard<std::recursive_mutex> lock(planner_mutex_);
 
-    ScalarPoint x = evaluate_polynomial(segments[0].coefficient, time);
-    ScalarPoint y = evaluate_polynomial(segments[1].coefficient, time);
-    ScalarPoint z = evaluate_polynomial(segments[2].coefficient, time);
+    // The polynomial runs away outside [0, T], so never evaluate it there
+    const double t = std::clamp(time, 0.0, total_time);
 
-    TrajectoryPoint point;
-    point.position     = Eigen::Vector3d(x.position,     y.position,     z.position);
-    point.velocity     = Eigen::Vector3d(x.velocity,     y.velocity,     z.velocity);
-    point.acceleration = Eigen::Vector3d(x.acceleration, y.acceleration, z.acceleration);
-
-    // orientation via SLERP
-    double ratio = std::clamp(time / total_time, 0.0, 1.0);
-    Eigen::Quaterniond q_end = end_quat_;
-    if (start_quat_.dot(end_quat_) < 0.0) q_end.coeffs() *= -1.0;
-    point.orientation = start_quat_.slerp(ratio, q_end).normalized();
-
+    JointTrajectoryPoint point;
+    for (std::size_t i = 0; i < UR5E_DOF; ++i) {
+        const ScalarPoint s = evaluate_polynomial(segments[i].coefficient, t);
+        point.position[i]     = s.position;
+        point.velocity[i]     = s.velocity;
+        point.acceleration[i] = s.acceleration;
+    }
     return point;
 }

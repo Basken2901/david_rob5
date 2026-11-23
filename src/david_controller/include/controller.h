@@ -37,9 +37,12 @@ class Controller
                                                    const Eigen::Matrix4d& T_target) const;
         std::array<double, 6> dls_controller(const Eigen::MatrixXd& Jacobian, double sigma_min,
                                                  const Eigen::Matrix4d& T_current, const Eigen::Matrix4d& T_target);
-         std::array<double, 6> joint_limit_guard(const std::array<double, 6>& q,
+        std::array<double, 6> joint_limit_guard(const std::array<double, 6>& q,
                                                 std::array<double, 6> qdot,
                                                 int* limiting_joint = nullptr) const;
+        std::array<double, 6> joint_trajectory_controller(const std::array<double, 6>& current,
+                                                const std::array<double, 6>& desired_pos,
+                                                const std::array<double, 6>& desired_vel) const;
     private:
         PGains p_gains_;
         DlsGains dls_;
