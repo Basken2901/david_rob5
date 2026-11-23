@@ -286,7 +286,7 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
             if (arm_clearance_checker_)
             {
                 arm_clearance_checker_->check_clearance(msg);
-                if (state_manager.get_control_mode() != ControlMode::TEST &&
+                if (state_manager.get_control_mode() != ControlMode::STARTUP &&
                     !arm_clearance_checker_->motion_allowed())
                     publishZeroVelocity();
             }
@@ -464,7 +464,7 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         //}
         void publishMotionVelocity(Arm& arm, std_msgs::msg::Float64MultiArray& cmd)
         {
-            const double scale = state_manager.get_control_mode() != ControlMode::TEST && arm_clearance_checker_
+            const double scale = state_manager.get_control_mode() != ControlMode::STARTUP && arm_clearance_checker_
                 ? arm_clearance_checker_->velocity_scale() : 1.0;
             for (double& velocity : cmd.data)
                 velocity = scale == 0.0 ? 0.0 : velocity * scale;
@@ -659,15 +659,19 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         {
             if (!arm.target_world)
                 arm.target_world = arm.T_world_base * forward_kinematics.forward_kinematics_matrix(dh_, q);
-        
+
             Eigen::Matrix4d& T = *arm.target_world;
+            const Eigen::Matrix4d previous = T;
             if (keys.up)     T(1, 3) += STEP;
             if (keys.down)   T(1, 3) -= STEP;
             if (keys.left)   T(0, 3) += STEP;
             if (keys.right)  T(0, 3) -= STEP;
             if (keys.z_up)   T(2, 3) += STEP;
             if (keys.z_down) T(2, 3) -= STEP;
-            
+
+            // Keep the jog only if the new target is reachable, so the target can't run off out of reach
+            if (!inverse_kinematics.inverse_kinematics(dh_, arm.T_base_world * T, q))
+                T = previous;
         }
         void small_movement(Arm& arm)
         {
@@ -731,7 +735,7 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
                     control_timer.reset();
                 }
                 control_timer = this->create_wall_timer(
-                    std::chrono::milliseconds(5),  //200 Hz
+                    std::chrono::milliseconds(50),  //200 Hz
                     [this]() {control_loop();}
                 );
             
@@ -740,7 +744,7 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
         void control_loop()
         {
             // Keyboard control may override clearance stops; automatic modes remain protected.
-            if (state_manager.get_control_mode() != ControlMode::TEST &&
+            if (state_manager.get_control_mode() != ControlMode::STARTUP &&
                 arm_clearance_checker_ && !arm_clearance_checker_->motion_allowed())
             {
                 publishZeroVelocity();
@@ -921,14 +925,8 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
                     keyboardJog(right_arm_, right_q, right_keys_);
                     // -------------------------------
                 
-                    if (!compute_velocity_publisher(left_arm_, left_q))
-                        left_arm_.target_world = previous_left; 
-                    
-                    if (!compute_velocity_publisher(right_arm_, right_q))
-                        right_arm_.target_world = previous_right; 
-                    
-                    track_target(left_arm_, left_q);
-                    track_target(right_arm_, right_q);
+                    compute_dls_publisher(left_arm_, left_q);
+                    compute_dls_publisher(right_arm_, right_q);
 
                     break;
                 }
