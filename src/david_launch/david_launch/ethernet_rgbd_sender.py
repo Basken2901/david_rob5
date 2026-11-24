@@ -51,7 +51,7 @@ class EthernetRgbdSender(Node):
         }
         self.rx = {side: {"rgb": 0, "depth": 0, "info": 0} for side in SIDES}
         self.tx = {side: 0 for side in SIDES}
-        self.subscriptions = []  # retain ROS subscription lifetimes
+        self._image_subscriptions = []  # retain ROS subscription lifetimes
         self.workers = []
 
         for side in SIDES:
@@ -62,7 +62,7 @@ class EthernetRgbdSender(Node):
                 ("info", CameraInfo, f"{prefix}/aligned_depth_to_color/camera_info"),
             )
             for key, msg_type, topic in topics:
-                self.subscriptions.append(self.create_subscription(
+                self._image_subscriptions.append(self.create_subscription(
                     msg_type, topic,
                     lambda msg, s=side, k=key: self.on_message(s, k, msg),
                     qos_profile_sensor_data,
