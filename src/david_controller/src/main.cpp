@@ -228,8 +228,8 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
 
                 // NAN = not recorded yet: homing then refuses to start and holds the arms
         const std::map<std::string, FixedPoses> fixed_target_poses_ = {
-            {"home_left",  {{NAN, NAN, NAN, NAN, NAN, NAN}, "home_left"}},
-            {"home_right", {{NAN, NAN, NAN, NAN, NAN, NAN}, "home_right"}}
+            {"home_left",  {{-1.839, -1.277, 1.772, -1.319, -1.219, 2.045}, "home_left"}},
+            {"home_right", {{0.27, -1.87, -1.77, -1.82, 1.22, 4.24}, "home_right"}}
         };
 
         Pose right_idle_;
