@@ -1,7 +1,0 @@
-# Per-camera RealSense image_transport parameter overrides.
-# Flat dictionary required by realsense2_camera/launch/rs_launch.py config_file.
-# In Jazzy image_transport 4.0.7 the plugin prefix begins with a dot when
-# the namespace is /david and the base topic includes /cam_left.
-".cam_left.color.image_raw.compressed.format": "png"
-".cam_left.aligned_depth_to_color.image_raw.compressedDepth.format": "rvl"
-".cam_left.aligned_depth_to_color.image_raw.compressedDepth.depth_max": 65.535

@@ -2,7 +2,7 @@ import os
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, GroupAction, SetEnvironmentVariable
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
@@ -36,32 +36,10 @@ def generate_launch_description():
             'right_serial': LaunchConfiguration('right_camera_serial'),
             'color_profile': LaunchConfiguration('color_profile'),
             'depth_profile': LaunchConfiguration('depth_profile'),
-            'enable_grayscale': LaunchConfiguration('enable_grayscale'),
-            'video_encoder': LaunchConfiguration('video_encoder'),
+            'enable_ethernet_rgbd': LaunchConfiguration('enable_ethernet_rgbd'),
+            'ethernet_laptop_ip': LaunchConfiguration('ethernet_laptop_ip'),
+            'ethernet_onboard_ip': LaunchConfiguration('ethernet_onboard_ip'),
         }.items(),
-    )
-
-    # Independent raw RGB-D Ethernet bridge. Do not change the controller DDS.
-    ethernet_sender = GroupAction(
-        scoped=True,
-        actions=[
-            SetEnvironmentVariable(
-                name='FASTDDS_BUILTIN_TRANSPORTS', value='LARGE_DATA'
-            ),
-            Node(
-                package='david_launch',
-                executable='ethernet_rgbd_sender',
-                name='david_ethernet_rgbd_sender',
-                parameters=[{
-                    'laptop_ip': LaunchConfiguration('ethernet_laptop_ip'),
-                    'onboard_ip': LaunchConfiguration('ethernet_onboard_ip'),
-                }],
-                output='screen',
-                respawn=True,
-                respawn_delay=3.0,
-            ),
-        ],
-        condition=IfCondition(LaunchConfiguration('enable_ethernet_rgbd')),
     )
 
     return LaunchDescription([
@@ -91,16 +69,6 @@ def generate_launch_description():
             description='Depth width x height x FPS for both RealSense cameras.',
         ),
         DeclareLaunchArgument(
-            'enable_grayscale',
-            default_value='false',
-            description='Also publish optional grayscale PNG streams (uses extra CPU).',
-        ),
-        DeclareLaunchArgument(
-            'video_encoder',
-            default_value='auto',
-            description='auto: probe VA-API HEVC, fallback to software H.264; also hevc_vaapi, libx264, off.',
-        ),
-        DeclareLaunchArgument(
             'enable_ethernet_rgbd', default_value='true',
         ),
         DeclareLaunchArgument(
@@ -111,5 +79,4 @@ def generate_launch_description():
         ),
         controller_node,
         rgbd_cameras,
-        ethernet_sender,
     ])

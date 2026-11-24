@@ -1,89 +1,45 @@
-# DAVID dual RealSense RGB-D over Wi-Fi (lossless)
+# DAVID dual RealSense RGB-D over Ethernet
 
-**Experimental grayscale streaming:** See [GRAYSCALE_TEST.md](GRAYSCALE_TEST.md) for
-new onboard-generated mono8 PNG topics. The original RGB topics still exist;
-this does **not** change the camera's actual RGB capture format.
-
-
-Both RealSense D435i cameras attach to DAVID's onboard PC. With `david_docker_real`
-running, starting the **existing** `ros2 launch david_launch main_controller.launch.py`
-launches McQueen and both cameras at **640×480, 30 FPS** for color and depth.
-The RealSense driver still aligns depth to the RGB image.
-
-## Transport to Isaac (subscribe ONLY to these image streams)
-
-- `/david/cam_left/color/image_raw/compressed` — `sensor_msgs/msg/CompressedImage`, **PNG** (lossless RGB).
-- `/david/cam_left/aligned_depth_to_color/image_raw/compressedDepth` — `sensor_msgs/msg/CompressedImage`, **RVL** (lossless 16-bit depth).
-- Same two topics under `/david/cam_right/`.
-- Small calibration topics: `/david/cam_left/color/camera_info` and `/david/cam_right/color/camera_info`.
-
-No JPEG, grayscale, colour reduction, depth downsampling, or point-cloud generation.
-The combined `/rgbd` publisher is **disabled**. Native raw image topics may still
-be listed by ROS 2; they are **not transmitted across Wi-Fi** without subscribers.
-Close other camera viewers or `ros2 topic echo/hz` instances on raw topics
-while testing compressed transport.
-
-Compressed image topics use the RealSense wrapper's existing `image_transport`
-publishers and ROS 2 Jazzy's `image_transport_plugins`, installed in
-`docker/Dockerfile`. The launch file sets per-camera plugin parameters in
-scoped groups:
-- PNG codec on colour `image_raw/compressed`.
-- RVL codec on aligned `image_raw/compressedDepth`.
-- `compressedDepth.depth_max = 65.535` metres so **raw 16UC1 millimetre
-  depth** isn't clipped at the plugin's default 10-metre threshold.
-
-The exact wire format can be verified by reading the `format` field. PNG must
-say `png`, **not `jpeg`**; depth must say `compressedDepth rvl`.
-Do not assume it is lossless until these values are verified in the running node.
-
-## Deploy on onboard PC
-
-After pulling the `feat/david-rgbd-mixed-reality` branch, stop the active
-real-DAVID launch safely. Rebuild the **real** Docker image to install the
-compression plugins:
+The normal onboard Docker workflow is unchanged: start the UR driver first,
+then build/source the workspace and run:
 
 ```bash
-cd ~/ROB5/david_rob5/docker
-docker compose -f docker_real-compose.yml up -d --build --force-recreate
-docker exec -it david_docker_real bash
-cd /ros2_ws
-colcon build --packages-select david_launch
-source install/setup.bash
 ros2 launch david_launch main_controller.launch.py
 ```
 
-Verify inside Docker (use a different terminal so the launch remains running):
+The controller remains in its existing ROS domain (1). The two RealSense
+D435i cameras and their sender run on a local-only ROS domain (78) using
+Fast DDS LARGE_DATA. No remote ROS image subscriber is required or intended.
+The camera nodes publish RGB8, aligned 16-bit depth and CameraInfo locally at
+the existing 640x480x30 profile. The sender connects from 169.254.40.222 to
+the laptop 169.254.89.190 on TCP 5510 (left) and 5511 (right).
+Both streams use the existing DRB2 protocol: calibration JSON, raw RGB and raw
+aligned depth. Isaac receives directly and uses its USD camera poses.
+No separate camera service or compression pipeline is used.
 
-```bash
-ros2 topic list | grep -E 'cam_(left|right)/.*(compressedDepth|compressed)'
-ros2 param list /david/cam_left | grep -E 'compressed.*(format|depth_max)'
-ros2 topic echo /david/cam_left/color/image_raw/compressed --once --field format
-ros2 topic echo /david/cam_left/aligned_depth_to_color/image_raw/compressedDepth --once --field format
-```
+Optional launch arguments: ethernet_laptop_ip, ethernet_onboard_ip,
+color_profile, depth_profile, enable_cameras, enable_ethernet_rgbd.
+The last switch disables the TCP sender for local diagnostics.
 
-The `--once --field format` commands require a subscriber and may briefly
-trigger encoding of one frame; this is intended. In the normal remote system,
-subscribe only to the four compressed image topics plus two CameraInfo topics,
-with **best-effort, keep-last depth 1** subscriber QoS.
-
-## On laptop / Isaac PC
-
-Use ROS_DOMAIN_ID=1 and working DDS discovery. Example:
+To inspect the local camera topics in a separate onboard Docker shell:
 
 ```bash
 source /opt/ros/jazzy/setup.bash
-export ROS_DOMAIN_ID=1
+source /ros2_ws/install/setup.bash
+export ROS_DOMAIN_ID=78
+export ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST
+unset ROS_STATIC_PEERS
 export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
-ros2 topic hz /david/cam_left/color/image_raw/compressed
+export FASTDDS_BUILTIN_TRANSPORTS=LARGE_DATA
+ros2 topic list --no-daemon
 ```
 
-The older Isaac Script Node subscribes to raw images or `/rgbd` and **will not
-receive compressed data as-is**. Replace its subscribers with the compressed
-transport version, retaining camera-info and image timestamps. For correct
-persistent world-anchored reconstruction, the Isaac model-prims' optical-frame
-calibration and synchronized robot/camera timestamps are still required.
+Check the sender logs for approximately 30 bundles/s per camera once Isaac
+is playing. Actual performance must be measured on the robot. A freshly
+rebuilt Docker image no longer explicitly installs the old codec plugins.
+The per-camera raw allowlists also restrict image_transport publishers on
+existing images supporting that parameter.
 
-**Performance note:** Even lossless compression can exceed available Wi-Fi
-throughput on textured/noisy scenes. Evaluate delivered FPS and dropped frames
-for **all four** streams concurrently; 30 FPS is a requested sensor profile,
-not a guaranteed remote delivery rate.
+If a legacy host camera service was previously installed, stop/disable it
+before starting this launch to avoid competing for the same USB devices:
+`systemctl --user disable --now david-rgbd-cameras.service`.

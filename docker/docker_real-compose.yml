@@ -13,7 +13,6 @@ services:
     device_cgroup_rules:
       - 'c 81:* rwm'                # /dev/video* (V4L2)
       - 'c 189:* rwm'               # /dev/bus/usb/*
-      - 'c 226:* rwm'               # /dev/dri/* (Radeon VA-API encoder)
     environment:
       - DISPLAY=${DISPLAY}
       - QT_X11_NO_MITSHM=1

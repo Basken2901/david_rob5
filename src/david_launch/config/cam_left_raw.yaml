@@ -1,0 +1,5 @@
+# Flat RealSense config_file overrides for Jazzy image_transport.
+# Allow only the built-in raw publisher, even on older Docker images with codecs installed.
+cam_left.color.image_raw.enable_pub_plugins: ["image_transport/raw"]
+cam_left.depth.image_rect_raw.enable_pub_plugins: ["image_transport/raw"]
+cam_left.aligned_depth_to_color.image_raw.enable_pub_plugins: ["image_transport/raw"]

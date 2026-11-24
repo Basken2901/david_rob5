@@ -81,11 +81,13 @@ class EthernetRgbdSender(Node):
             if kind == "info":
                 self.frames[side]["info"] = msg
             else:
-                self.frames[side][kind].append(msg)
+                self.frames[side][kind].append(
+                    (self.rx[side][kind] + 1, msg) if kind == "depth" else msg
+                )
             self.rx[side][kind] += 1
         self.pending[side].set()
 
-    def newest_pair(self, side, last_depth_stamp):
+    def newest_pair(self, side, last_depth_id):
         with self.lock:
             data = self.frames[side]
             info = data["info"]
@@ -93,9 +95,9 @@ class EthernetRgbdSender(Node):
                 return None
             # Find the newest depth frame with a close RGB neighbour.
             # Latest-only queues ensure a slow network never builds backlog.
-            for depth in reversed(data["depth"]):
+            for depth_id, depth in reversed(data["depth"]):
                 t = timestamp_ns(depth)
-                if t == last_depth_stamp:
+                if last_depth_id is not None and depth_id <= last_depth_id:
                     continue
                 rgb = min(data["rgb"], key=lambda m: abs(timestamp_ns(m) - t))
                 if abs(timestamp_ns(rgb) - t) > MAX_SKEW_NS:
@@ -107,7 +109,7 @@ class EthernetRgbdSender(Node):
                     continue
                 if rgb.encoding.lower() not in ("rgb8", "bgr8", "rgba8", "bgra8"):
                     continue
-                return rgb, depth, info, t
+                return rgb, depth, info, depth_id
         return None
 
     @staticmethod
@@ -154,19 +156,19 @@ class EthernetRgbdSender(Node):
                         f"{side}: Ethernet connected: {self.onboard_ip} -> "
                         f"{self.laptop_ip}:{port}"
                     )
-                    last_depth_stamp = None
+                    last_depth_id = None
                     while not self.stop.is_set() and rclpy.ok():
                         self.pending[side].wait(0.1)
                         self.pending[side].clear()
-                        pair = self.newest_pair(side, last_depth_stamp)
+                        pair = self.newest_pair(side, last_depth_id)
                         if pair is None:
                             continue
-                        rgb, depth, info, t = pair
+                        rgb, depth, info, depth_id = pair
                         header, metadata, color, z16 = self.make_packet(side, rgb, depth, info)
                         sock.sendall(header + metadata)
                         sock.sendall(color)
                         sock.sendall(z16)
-                        last_depth_stamp = t
+                        last_depth_id = depth_id
                         with self.lock:
                             self.tx[side] += 1
             except OSError as error:

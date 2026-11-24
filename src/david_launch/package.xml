@@ -14,13 +14,8 @@
 
   <exec_depend>launch_ros</exec_depend>
   <exec_depend>realsense2_camera</exec_depend>
-  <exec_depend>image_transport_plugins</exec_depend>
-  <exec_depend>ffmpeg_image_transport</exec_depend>
-  <exec_depend>ffmpeg_image_transport_msgs</exec_depend>
   <exec_depend>rclpy</exec_depend>
   <exec_depend>sensor_msgs</exec_depend>
-  <exec_depend>python3-numpy</exec_depend>
-  <exec_depend>python3-opencv</exec_depend>
   <exec_depend>moveit_servo</exec_depend>
   <exec_depend>ur_description</exec_depend>
   <exec_depend>ur_moveit_config</exec_depend>
