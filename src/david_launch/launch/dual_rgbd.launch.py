@@ -102,8 +102,8 @@ def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument("left_serial", default_value=""),
         DeclareLaunchArgument("right_serial", default_value=""),
-        DeclareLaunchArgument("color_profile", default_value="640x480x30"),
-        DeclareLaunchArgument("depth_profile", default_value="640x480x30"),
+        DeclareLaunchArgument("color_profile", default_value="1280x720x30"),
+        DeclareLaunchArgument("depth_profile", default_value="1280x720x30"),
         DeclareLaunchArgument("enable_ethernet_rgbd", default_value="true"),
         DeclareLaunchArgument("ethernet_laptop_ip", default_value="169.254.89.190"),
         DeclareLaunchArgument("ethernet_onboard_ip", default_value="169.254.40.222"),

@@ -50,22 +50,22 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             'left_camera_serial',
-            default_value='261222075899',
+            default_value='250122074198',
             description='RealSense serial number on the left wrist.',
         ),
         DeclareLaunchArgument(
             'right_camera_serial',
-            default_value='250122074198',
+            default_value='261222075899',
             description='RealSense serial number on the right wrist.',
         ),
         DeclareLaunchArgument(
             'color_profile',
-            default_value='640x480x30',
+            default_value='1280x720x30',
             description='RGB width x height x FPS for both RealSense cameras.',
         ),
         DeclareLaunchArgument(
             'depth_profile',
-            default_value='640x480x30',
+            default_value='1280x720x30',
             description='Depth width x height x FPS for both RealSense cameras.',
         ),
         DeclareLaunchArgument(
