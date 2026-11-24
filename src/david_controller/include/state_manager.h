@@ -25,11 +25,9 @@ enum class TrajectoryMode {
 
 
 enum class ControlMode {
-    SAFETY = 0,
-    STARTUP = 1,
-    OPERATION = 2,
-    DEADMAN = 3,
-    TEST = 4
+    STARTUP = 0,
+    OPERATION = 1,
+    HOME = 2
 };
 
 struct Gripper {
