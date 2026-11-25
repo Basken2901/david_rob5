@@ -25,11 +25,16 @@ enum class TrajectoryMode {
 
 
 enum class ControlMode {
-    SAFETY = 0,
-    STARTUP = 1,
-    OPERATION = 2,
-    DEADMAN = 3,
-    TEST = 4
+    STARTUP = 0,
+    OPERATION = 1,
+    HOME = 2
+};
+
+struct Gripper {
+    static constexpr std::array<int, 2> OPEN = {0,1};
+    static constexpr std::array<int, 2> CLOSED = {1,0};
+    static constexpr std::array<int, 2> BREAK_1 = {1,1};
+    static constexpr std::array<int, 2> BREAK_0 = {0,0};
 };
 
 struct PGains {

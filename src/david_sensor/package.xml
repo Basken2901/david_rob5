@@ -3,9 +3,13 @@
 <package format="3">
   <name>david_sensor</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
+  <description>DAVID dual RealSense RGB-D camera launch.</description>
   <maintainer email="mathiasaskhansen04@gmail.com">mathias</maintainer>
   <license>TODO: License declaration</license>
+
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <exec_depend>realsense2_camera</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

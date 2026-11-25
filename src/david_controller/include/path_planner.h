@@ -7,6 +7,7 @@
 #include <mutex>
 #include <eigen3/Eigen/Dense>
 #include <eigen3/Eigen/Geometry>
+#include <array>
 
 #include "transformations.h"
 #include "state_manager.h"
@@ -31,38 +32,40 @@ struct TrajectorySegment {
     std::vector<double> coefficient;
 };
 
+using JointArray = std::array<double, UR5E_DOF>;
+
+struct JointTrajectoryPoint {
+    JointArray position{};
+    JointArray velocity{};
+    JointArray acceleration{};
+};
+
 class PathPlanner
 {
    public:
       std::vector<double> generate_polynomium_coefficients(double start, double end, double start_vel, double start_acc, double time);
-      bool generate_trajectory(
-       const Eigen::Vector3d& start_pos, const Eigen::Vector3d& end_pos, const Eigen::Quaterniond& start_quat, const Eigen::Quaterniond& end_quat,
-       const Eigen::Vector3d& current_velocity, const Eigen::Vector3d& current_acceleration);
-      float calculateDuration(float distance, float velocity, float min_velocity, float max_velocity) const;
+
+      // One 7th order polynomial per joint from q_start to q_end, ending at rest
+      bool generate_trajectory(const JointArray& q_start, const JointArray& q_end,
+                               const JointArray& qd_start = {}, const JointArray& qdd_start = {});
+      double calculateDuration(const JointArray& q_start, const JointArray& q_end) const;
       ScalarPoint evaluate_polynomial(const std::vector<double>& coefficient, double time) const;
-      TrajectoryPoint get_trajectory_point(double time) const;
-
-
+      JointTrajectoryPoint get_trajectory_point(double time) const;   // time is clamped to [0, total_time]
 
       double get_total_time() const;
-      const TrajectorySegment (&get_segments() const)[3] { return segments; }   // !TEMP
+      bool has_trajectory() const;
+      void set_limits(double max_joint_velocity, double max_joint_acceleration, double min_duration);
+      const std::array<TrajectorySegment, UR5E_DOF>& get_segments() const { return segments; }   // !TEMP
 
    private:
-      Transformations transformations;
-      StateManager state_manager;
       mutable std::recursive_mutex planner_mutex_;
-      
-      float current_angular_velocity_ = 0.15; //!! MIGHT HAVE TO CHANGE ALL THESE, PLUS MOVE TO BETTER PLACE
-      float min_linear_velocity_ = 0.3;        
-      float min_angular_velocity_ = 0.3;       
-      float max_linear_velocity_ = 0.8;        
-      float max_angular_velocity_ = 0.8;  
 
-      double total_time;
-      TrajectorySegment segments[3]; 
-      
-      Eigen::Vector3d start_vel_;
-      Eigen::Vector3d start_acc_;
-      Eigen::Quaterniond start_quat_;
-      Eigen::Quaterniond end_quat_;
+      // Kept under the 0.5 rad/s clamp in the controller so the P term has room to correct
+      double max_joint_velocity_     = 0.4;   // rad/s
+      double max_joint_acceleration_ = 0.8;   // rad/s^2
+      double min_duration_           = 0.5;   // s
+
+      double total_time = 0.0;
+      bool has_trajectory_ = false;
+      std::array<TrajectorySegment, UR5E_DOF> segments;
 };
