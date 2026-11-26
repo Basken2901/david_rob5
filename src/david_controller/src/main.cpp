@@ -851,6 +851,14 @@ class ControlNode : public rclcpp::Node{ //our control_node is derived from the 
                         set_gripper(right_arm_, right_arm_.gripper_closed);
                     }
                     right_arm_.prev_trigger = right_trigger_;
+
+                    if (left_trigger_ && !left_arm_.prev_trigger) {
+                        left_arm_.gripper_closed = !left_arm_.gripper_closed;
+                        set_gripper(left_arm_, left_arm_.gripper_closed);
+                    }
+                    left_arm_.prev_trigger = left_trigger_;
+
+                    
                   break;
                 }
             
