@@ -31,6 +31,7 @@ setup(
     entry_points={
         'console_scripts': [
             'isaac_joint_states = david_launch.isaac_joint_states:main',
+            'ethernet_rgbd_sender = david_launch.ethernet_rgbd_sender:main',
         ],
     },
 )
